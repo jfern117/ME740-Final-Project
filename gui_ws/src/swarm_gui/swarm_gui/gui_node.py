@@ -1,7 +1,15 @@
+#ROS Depdendencies
 import rclpy
 from rclpy.node import Node
-
 from std_msgs.msg import String
+
+#PyQT5 Depdendencies
+import numpy
+from PyQt5.QtWidgets import QApplication, QWidget
+import sys
+
+#Other requirements
+from threading import Thread #need to run both GUI + ros at same time
 
 
 class MinimalSubscriber(Node):
@@ -22,9 +30,29 @@ class MinimalSubscriber(Node):
 def main(args=None):
     rclpy.init(args=args)
 
+    #setup the ROS node and the GUI
     minimal_subscriber = MinimalSubscriber()
 
-    rclpy.spin(minimal_subscriber)
+    app = QApplication([])
+    window = QWidget()
+    window.show()
+
+    # rclpy.spin(minimal_subscriber)
+
+    #TODO: need to do some multithreading to run both at once.
+    #TODO: should have node and GUI be separate classes
+
+
+    #setup the thread to run the ros messaging
+    def ros_thread_func():
+        rclpy.spin(minimal_subscriber)
+    
+    #since this is a daemon, it auto-terminates when the program finishes
+    ros_ctrl_thread = Thread(target=ros_thread_func, daemon=True)
+    ros_ctrl_thread.start()
+    
+    #run the GUI loop in the main program
+    app.exec()
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
