@@ -5,7 +5,8 @@ from std_msgs.msg import String
 
 #PyQT5 Depdendencies
 import numpy
-from PyQt5.QtWidgets import QApplication, QWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
+from PyQt5.QtCore import QSize, Qt
 import sys
 
 #Other requirements
@@ -26,6 +27,15 @@ class MinimalSubscriber(Node):
     def listener_callback(self, msg):
         self.get_logger().info('I heard: "%s"' % msg.data)
 
+#https://www.pythonguis.com/tutorials/creating-your-first-pyqt-window/
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("My App")
+        button = QPushButton("Press me!")
+
+        self.setCentralWidget(button)
 
 def main(args=None):
     rclpy.init(args=args)
@@ -34,14 +44,8 @@ def main(args=None):
     minimal_subscriber = MinimalSubscriber()
 
     app = QApplication([])
-    window = QWidget()
+    window = MainWindow()
     window.show()
-
-    # rclpy.spin(minimal_subscriber)
-
-    #TODO: need to do some multithreading to run both at once.
-    #TODO: should have node and GUI be separate classes
-
 
     #setup the thread to run the ros messaging
     def ros_thread_func():
