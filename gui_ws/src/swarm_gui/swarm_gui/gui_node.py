@@ -5,7 +5,7 @@ from std_msgs.msg import String
 
 #PyQT5 Depdendencies
 import numpy
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel
 from PyQt5.QtCore import QSize, Qt
 import sys
 
@@ -15,7 +15,7 @@ from threading import Thread #need to run both GUI + ros at same time
 
 class MinimalSubscriber(Node):
 
-    def __init__(self):
+    def __init__(self, gui_app):
         super().__init__('minimal_subscriber')
         self.subscription = self.create_subscription(
             String,
@@ -24,8 +24,11 @@ class MinimalSubscriber(Node):
             10)
         self.subscription  # prevent unused variable warning
 
+        self.app = gui_app
+
     def listener_callback(self, msg):
         self.get_logger().info('I heard: "%s"' % msg.data)
+        self.app.label.setText(f"Rx: {msg.data}")
 
 #https://www.pythonguis.com/tutorials/creating-your-first-pyqt-window/
 class MainWindow(QMainWindow):
@@ -33,19 +36,22 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("My App")
-        button = QPushButton("Press me!")
+        # button = QPushButton("Press me!")
+        self.label = QLabel("Rx: ")
 
-        self.setCentralWidget(button)
+        self.setCentralWidget(self.label)
 
 def main(args=None):
     rclpy.init(args=args)
 
-    #setup the ROS node and the GUI
-    minimal_subscriber = MinimalSubscriber()
+    
 
     app = QApplication([])
     window = MainWindow()
     window.show()
+
+    #setup the ROS node and the GUI
+    minimal_subscriber = MinimalSubscriber(window)
 
     #setup the thread to run the ros messaging
     def ros_thread_func():
