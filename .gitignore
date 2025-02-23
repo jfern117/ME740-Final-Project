@@ -1,1 +1,6 @@
 venv
+
+#ignore unneeded directories in gui_ws directory
+gui_ws/build
+gui_ws/install
+gui_ws/log
