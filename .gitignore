@@ -1,6 +1,16 @@
+#ignore our python environment
 venv
+
+#ignore any caches
+__pycache__
 
 #ignore unneeded directories in gui_ws directory
 gui_ws/build
 gui_ws/install
 gui_ws/log
+
+
+#File types
+*.mp4
+*.png
+
