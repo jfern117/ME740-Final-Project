@@ -9,7 +9,6 @@ gui_ws/build
 gui_ws/install
 gui_ws/log
 
-
 #File types
 *.mp4
 *.png
