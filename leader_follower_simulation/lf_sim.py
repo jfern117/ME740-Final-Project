@@ -37,7 +37,7 @@ comm_network.add_edges_from(edges)
 #each agent has a four element state: [x, y, xdot, ydot]. Here are the starting states
 starting_offset = np.sqrt(2)/2
 agent_states = np.zeros((num_agents, state_dim))
-agent_states[0] = np.array([0, 0, 0, 0.5])
+agent_states[0] = np.array([0, 0, 0.25, 0.5])
 agent_states[1] = np.array([1, 0, 0, 0])
 agent_states[2] = np.array([starting_offset, -starting_offset, 0, 0])
 agent_states[3] = np.array([0, -1, 0, 0])
@@ -117,6 +117,8 @@ for sim_idx in range(num_steps - 1):
 
 
 ## Viewing the Sim ##
+#Note: The code in this section is based on (but largely modified) on code from a previous project of mine where I wanted to 
+#      build a similar animation (source: https://github.com/jfern117/ec518-project/blob/main/animate_bittle_test.py)
 frame_rate = 20  # Frames per second
 real_time_playback = 1  # Set to 2 for 2x speed
 view_edge_buffer = 1
