@@ -79,7 +79,8 @@ def get_control(leader_state):
     """
     """
 
-    damping_constant = 0.001
+    damping_constant = 2.5
+    eps = 1e-9
     curr_xdot = leader_state[2]
     curr_ydot = leader_state[3]
 
@@ -87,16 +88,15 @@ def get_control(leader_state):
     left = keys[pygame.K_LEFT]
     right = keys[pygame.K_RIGHT]
 
-    speed_check = lambda dir, v, vmax: np.sign(v).item() == dir and np.abs(v) < vmax
+    #we apply the max accel input if (1) it counteracts your current direction of movement or (2) you are less than the current max speed
+    speed_check = lambda dir, v, vmax: np.sign(v) != dir or np.abs(v) < vmax
 
-
-    #TODO: there's an issue with speed check?
     if left:
-        u_H = -max_speed/accel_time #-max_speed/accel_time if speed_check(-1, curr_xdot, max_speed) else 0
+        u_H = -max_speed/accel_time if speed_check(-1, curr_xdot, max_speed) else 0
     elif right:
-        u_H = max_speed/accel_time# max_speed/accel_time if speed_check(1, curr_xdot, max_speed) else 0
+        u_H = max_speed/accel_time if speed_check(1, curr_xdot, max_speed) else 0
     else:
-        u_H = 0#-damping_constant*curr_xdot
+        u_H = -damping_constant*curr_xdot
 
     #handle vertical control input
     up = keys[pygame.K_UP]
@@ -107,11 +107,11 @@ def get_control(leader_state):
     elif up:
         u_V = max_speed/accel_time if speed_check(1, curr_ydot, max_speed) else 0
     else:
-        u_V = -damping_constant*curr_xdot
+        u_V = -damping_constant*curr_ydot
 
-    print(np.array([u_H, u_V]))
+    control = np.array([u_H, u_V])
 
-    return np.array([u_H, u_V])
+    return control
 
 
 
@@ -149,15 +149,29 @@ def sim_dynamics_update(t, x):
 #setup the game
 width, height = 800, 800
 radius = 5
-color = (0, 255, 0)
+# color = (0, 255, 0)
 pygame.init()
 screen = pygame.display.set_mode((width, height))
 pix_per_meter = 100
-offset = 400
+w_offset = width/2
+h_offset = height/2
 clock = pygame.time.Clock()
 
 
+
+def get_agent_display_position(agent_position):
+    """
+    """
+    agent_pos_pix = (agent_position[0:2]*pix_per_meter).astype(int)
+    agent_pos_pix[0] += w_offset
+    agent_pos_pix[1] += h_offset
+    agent_pos_pix[1] = height - agent_pos_pix[1]
+
+    return agent_pos_pix
+
+
 running = True
+colors = [pygame.Color("green"), pygame.Color("red"), pygame.Color("blue"), pygame.Color("yellow"), pygame.Color("purple") ]
 
 while running:
 
@@ -183,13 +197,13 @@ while running:
 
     agent_states = rk45_solver.y.reshape((num_agents, state_dim))
 
-    leader_state = agent_states[0]
+    for agent_idx in range(num_agents):
 
-    leader_pos_pix = (leader_state[0:2]*pix_per_meter + offset).astype(int)
+        curr_state = agent_states[agent_idx]
 
+        pos_pix = get_agent_display_position(curr_state)
 
-
-    pygame.draw.circle(screen, color, leader_pos_pix, radius)
+        pygame.draw.circle(screen, colors[agent_idx], pos_pix, radius, )
 
     pygame.display.update()
     clock.tick(frame_rate)
