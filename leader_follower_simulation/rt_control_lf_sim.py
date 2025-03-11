@@ -1,8 +1,8 @@
 import numpy as np
 import networkx as nx
 import scipy.integrate
-import matplotlib.pyplot as plt
 import scipy.signal
+from copy import deepcopy
 
 import pygame
 
@@ -45,12 +45,31 @@ agent_states[3] = np.array([0, -1, 0, 0])
 agent_states[4] = np.array([-starting_offset, -starting_offset, 0, 0])
 
 # Each agent need a designated deviation from the leader
+formation_list = []
+formation_selection = 0
 desired_deviations = np.zeros([num_agents, state_dim])
 desired_deviations[0] = np.zeros(4)
-desired_deviations[1] = np.array([-2, 0, 0, 0])
+
+#Formation 0: cross
+desired_deviations[1] = np.array([1, 0, 0 ,0])
+desired_deviations[2] = np.array([0, 1, 0, 0])
+desired_deviations[3] = np.array([-1, 0, 0, 0])
+desired_deviations[4] = np.array([0, -1, 0, 0])
+formation_list.append(deepcopy(desired_deviations))
+
+#Formation 1: (Vertical) Line
+desired_deviations[1] = np.array([0, 1, 0, 0])
 desired_deviations[2] = np.array([0, 2, 0, 0])
-desired_deviations[3] = np.array([2, 0, 0 ,0])
+desired_deviations[3] = np.array([0, -1, 0 ,0])
 desired_deviations[4] = np.array([0, -2, 0, 0])
+formation_list.append(deepcopy(desired_deviations))
+
+#Formation 2: V formation (leader front)
+desired_deviations[1] = np.array([1, -1, 0, 0])
+desired_deviations[2] = np.array([0.5, -0.5, 0, 0])
+desired_deviations[3] = np.array([-0.5, -0.5, 0 ,0])
+desired_deviations[4] = np.array([-1, -1, 0, 0])
+formation_list.append(deepcopy(desired_deviations))
 
 #dynamics equations - double integrator
 A = np.zeros((state_dim, state_dim))
@@ -62,8 +81,8 @@ B[2, 0] = 1
 B[3, 1] = 1
 
 #consensus gain (based on toyota's paper)
-gamma0 = 1
-gamma1 = 1
+gamma0 = 2
+gamma1 = 2
 consensus_gain = np.zeros((2, state_dim))
 consensus_gain[0, 0] = gamma0
 consensus_gain[0, 2] = gamma1
@@ -80,7 +99,6 @@ def get_control(leader_state):
     """
 
     damping_constant = 2.5
-    eps = 1e-9
     curr_xdot = leader_state[2]
     curr_ydot = leader_state[3]
 
@@ -133,7 +151,7 @@ def sim_dynamics_update(t, x):
     for agent_idx in range(1, num_agents):
         control = consensus_control_input(network=comm_network,
                                           agent_states=curr_state,
-                                          desired_deviations=desired_deviations,
+                                          desired_deviations=formation_list[formation_selection],
                                           agent_selection=agent_idx,
                                           gain = consensus_gain).flatten()
 
@@ -172,6 +190,7 @@ def get_agent_display_position(agent_position):
 
 running = True
 colors = [pygame.Color("green"), pygame.Color("red"), pygame.Color("blue"), pygame.Color("yellow"), pygame.Color("purple") ]
+prev_formation_press = None
 
 while running:
 
@@ -186,6 +205,12 @@ while running:
 
 
     keys = pygame.key.get_pressed()
+    if prev_formation_press is None:
+        prev_formation_press = keys[pygame.K_x]
+
+    if keys[pygame.K_x] and not prev_formation_press:
+        formation_selection = (formation_selection + 1) % len(formation_list)
+        
 
     rk45_solver = scipy.integrate.RK45(fun = sim_dynamics_update,
                                        t0 = 0,
@@ -203,33 +228,7 @@ while running:
 
         pos_pix = get_agent_display_position(curr_state)
 
-        pygame.draw.circle(screen, colors[agent_idx], pos_pix, radius, )
+        pygame.draw.circle(screen, colors[agent_idx], pos_pix, radius)
 
     pygame.display.update()
     clock.tick(frame_rate)
-
-
-    
-
-    
-
-
-
-
-
-# num_steps = int(sim_time/sim_dt) + 1
-# timestamps = np.arange(num_steps)*sim_dt
-# system_states = np.zeros((num_steps, num_agents, state_dim))
-# system_states[0] = agent_states
-
-# for sim_idx in range(num_steps - 1):
-
-#     rk45_solver = scipy.integrate.RK45(fun = sim_dynamics_update,
-#                                        t0 = timestamps[sim_idx],
-#                                        t_bound = timestamps[sim_idx] + sim_dt,
-#                                        y0 = system_states[sim_idx].flatten())
-
-#     while rk45_solver.status == "running":
-#         rk45_solver.step()
-
-#     system_states[sim_idx + 1] = rk45_solver.y.reshape((num_agents, state_dim))
