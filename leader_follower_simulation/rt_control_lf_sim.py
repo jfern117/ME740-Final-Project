@@ -189,7 +189,7 @@ def get_agent_display_position(agent_position):
 
 
 running = True
-colors = [pygame.Color("green"), pygame.Color("red"), pygame.Color("blue"), pygame.Color("yellow"), pygame.Color("purple") ]
+colors = [pygame.Color("green"), pygame.Color("red"), pygame.Color("blue"), pygame.Color("black"), pygame.Color("purple") ]
 prev_formation_press = None
 
 while running:
@@ -210,6 +210,8 @@ while running:
 
     if keys[pygame.K_x] and not prev_formation_press:
         formation_selection = (formation_selection + 1) % len(formation_list)
+    
+    prev_formation_press = keys[pygame.K_x]
         
 
     rk45_solver = scipy.integrate.RK45(fun = sim_dynamics_update,
@@ -225,10 +227,13 @@ while running:
     for agent_idx in range(num_agents):
 
         curr_state = agent_states[agent_idx]
+        agent_pos_pixels = get_agent_display_position(curr_state)
+        pygame.draw.circle(screen, colors[agent_idx], agent_pos_pixels, radius)
 
-        pos_pix = get_agent_display_position(curr_state)
-
-        pygame.draw.circle(screen, colors[agent_idx], pos_pix, radius)
+        #draw the desired goal
+        curr_goal = formation_list[formation_selection][agent_idx] + agent_states[0]
+        goal_pos_pixels = get_agent_display_position(curr_goal)
+        pygame.draw.circle(screen, colors[agent_idx], goal_pos_pixels, radius*3, 2)
 
     pygame.display.update()
     clock.tick(frame_rate)
