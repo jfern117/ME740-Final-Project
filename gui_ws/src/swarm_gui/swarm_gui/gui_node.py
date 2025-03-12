@@ -4,16 +4,17 @@ from rclpy.node import Node
 from std_msgs.msg import String
 
 #PyQT5 Depdendencies
-import numpy
+import numpy as np
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QTabWidget, QPushButton #ui elements
 from PyQt5.QtWidgets import QVBoxLayout #layouts
 from PyQt5.QtCore import QSize, Qt
+import pyqtgraph as pg 
 import sys
 
 #Other requirements
 from threading import Thread #need to run both GUI + ros at same time
 
-
+## ROS Node ##
 class MinimalSubscriber(Node):
 
     def __init__(self, gui_app):
@@ -29,17 +30,52 @@ class MinimalSubscriber(Node):
 
     def listener_callback(self, msg):
         self.get_logger().info('I heard: "%s"' % msg.data)
-        self.app.tab_list[0].label.setText(f"Rx: {msg.data}")
+        # self.app.tab_list[0].label.setText(f"Rx: {msg.data}")
 
+## GUI Setup ##
 
+#see tutorial at https://www.pythonguis.com/tutorials/plotting-pyqtgraph/
 class sim_tab(QWidget):
+
     def __init__(self, parent):
         super().__init__(parent)
 
         self.tab_layout = QVBoxLayout()
-        self.label = QLabel("Rx: ")
-        self.tab_layout.addWidget(self.label)
+        # self.label = QLabel("Rx: ")
+        # self.tab_layout.addWidget(self.label)
         self.setLayout(self.tab_layout)
+
+        #Placeholder for now, starting agent states
+        starting_offset = np.sqrt(2)/2
+        num_agents = 5
+        state_dim = 4
+        agent_states = np.zeros((num_agents, state_dim))
+        agent_states[0] = np.array([0, 0, 0, 0])
+        agent_states[1] = np.array([1, 0, 0, 0])
+        agent_states[2] = np.array([starting_offset, -starting_offset, 0, 0])
+        agent_states[3] = np.array([0, -1, 0, 0])
+        agent_states[4] = np.array([-starting_offset, -starting_offset, 0, 0])
+
+        self.agent_states = agent_states
+
+        #this is going to be the view graph until we get a FPV
+        self.central_view = pg.PlotWidget()
+        self.tab_layout.addWidget(self.central_view)
+        
+        #setup the plot
+        self.central_view.setBackground("w")
+        self.central_view.setMouseEnabled(x=False, y=False) #disable scrolling + zooming on the plot (we're gonna manage that)
+
+        self.agent_plot_list = []
+        self.color_list = ["g", "r", "b", "k", "m" ]
+        for agent_idx in range(len(self.agent_states)):
+            curr_state = self.agent_states[agent_idx]
+            self.agent_plot_list.append(self.central_view.plot([curr_state[0]], [curr_state[1]],
+                                                               symbol = "o",
+                                                               symbolBrush=self.color_list[agent_idx]))
+            
+    def plot_agents(self):
+        pass
 
 
 class formation_tab(QWidget):
