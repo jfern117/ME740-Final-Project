@@ -5,7 +5,8 @@ from std_msgs.msg import String
 
 #PyQT5 Depdendencies
 import numpy
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QTabWidget, QPushButton #ui elements
+from PyQt5.QtWidgets import QVBoxLayout #layouts
 from PyQt5.QtCore import QSize, Qt
 import sys
 
@@ -28,18 +29,50 @@ class MinimalSubscriber(Node):
 
     def listener_callback(self, msg):
         self.get_logger().info('I heard: "%s"' % msg.data)
-        self.app.label.setText(f"Rx: {msg.data}")
+        self.app.tab_list[0].label.setText(f"Rx: {msg.data}")
+
+
+class sim_tab(QWidget):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        self.tab_layout = QVBoxLayout()
+        self.label = QLabel("Rx: ")
+        self.tab_layout.addWidget(self.label)
+        self.setLayout(self.tab_layout)
+
+
+class formation_tab(QWidget):
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        self.tab_layout = QVBoxLayout()
+        self.button = QPushButton("Press me!") #this is a placeholder for future useful stuff
+        self.tab_layout.addWidget(self.button)
+        self.setLayout(self.tab_layout)
+
+#TODO: set this one up later
+class setting_tab(QWidget):
+    pass
 
 #https://www.pythonguis.com/tutorials/creating-your-first-pyqt-window/
-class MainWindow(QMainWindow):
+class gui_app(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("My App")
-        # button = QPushButton("Press me!")
-        self.label = QLabel("Rx: ")
+        self.setWindowTitle("Control GUI")
 
-        self.setCentralWidget(self.label)
+        self.tab_list = [sim_tab(self), formation_tab(self)]
+
+        #the tabs contain our primary gui elements, so we create a tab widget and add our tabs to it
+        self.tab_widget = QTabWidget()
+        self.setCentralWidget(self.tab_widget)
+
+        #save the setting tab for later
+        self.tab_widget.addTab(self.tab_list[0], "Control")
+        self.tab_widget.addTab(self.tab_list[1], "Formations")
+        
 
 def main(args=None):
     rclpy.init(args=args)
@@ -47,8 +80,9 @@ def main(args=None):
     
 
     app = QApplication([])
-    window = MainWindow()
+    window = gui_app()
     window.show()
+
 
     #setup the ROS node and the GUI
     minimal_subscriber = MinimalSubscriber(window)
