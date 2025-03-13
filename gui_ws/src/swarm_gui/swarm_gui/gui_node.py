@@ -30,6 +30,9 @@ class MinimalSubscriber(Node):
     def listener_callback(self, msg):
         self.get_logger().info('I heard: "%s"' % msg.data)
         # self.app.tab_list[0].label.setText(f"Rx: {msg.data}")
+        agent_states = self.app.tab_list[0].agent_states
+        agent_states[0][1] += 0.01
+        self.app.tab_list[0].update_agent_plots(agent_states)
 
 def main(args=None):
     rclpy.init(args=args)

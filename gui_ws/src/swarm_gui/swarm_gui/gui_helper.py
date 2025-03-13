@@ -107,11 +107,32 @@ class sim_tab(QWidget):
             self.agent_goal_list.append(curr_goal_circle)
             self.central_view.addItem(self.agent_goal_list[agent_idx])
 
-    def update_agent_plots(self):
+    def update_agent_plots(self, updated_agent_states):
         """
         """
-        
 
+        #update stuff provided by the function call
+        self.agent_states = updated_agent_states
+        self.desired_deviations = self.main_app.formation_list[self.main_app.selected_formation].agent_deviations
+
+
+        for agent_idx in range(len(self.agent_plot_list)):
+            curr_plot = self.agent_plot_list[agent_idx]
+            curr_state = self.agent_states[agent_idx]
+            curr_plot.setData([curr_state[0]], [curr_state[1]])
+
+            curr_goal_plot = self.agent_goal_list[agent_idx]
+            goal_state = self.desired_deviations[agent_idx] + self.agent_states[0]
+            curr_goal_plot.setRect(goal_state[0] - self.goal_radius, 
+                                   goal_state[1] - self.goal_radius,
+                                   2*self.goal_radius,
+                                   2*self.goal_radius)
+
+#helper class for the formation tab. Will likely be useful for later    
+class formation():
+    def __init__(self, deviations, description = ""):
+        self.agent_deviations = deviations
+        self.description = description
 
 class formation_tab(QWidget):
 
@@ -135,6 +156,7 @@ class gui_app(QMainWindow):
         self.setWindowTitle("Control GUI")
 
         self.formation_list = []
+        self.selected_formation = 0
 
         self.tab_list = [sim_tab(self), formation_tab(self)]
 
@@ -148,9 +170,4 @@ class gui_app(QMainWindow):
 
 
 
-
-class formation():
-    def __init__(self, deviations, description = ""):
-        self.agent_deviations = deviations
-        self.description = description
 
