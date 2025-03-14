@@ -2,10 +2,9 @@
 import numpy as np
 from PyQt5.QtWidgets import QMainWindow, QLabel, QWidget, QTabWidget, QPushButton, QTableWidget, QTableWidgetItem, QComboBox, QLineEdit, QTextEdit #ui elements
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout #layouts
-from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
 import pyqtgraph as pg 
-import sys
 from swarm_gui.agent_plot_helper import init_plot, update_plot
 
 #used to save the formations

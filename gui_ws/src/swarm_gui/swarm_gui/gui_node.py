@@ -17,7 +17,7 @@ from threading import Thread #need to run both GUI + ros at same time
 class Gui_Handler(Node):
 
     def __init__(self, gui_app):
-        super().__init__('minimal_subscriber')
+        super().__init__('gui_handler')
         self.subscription = self.create_subscription(
             String,
             'topic',
