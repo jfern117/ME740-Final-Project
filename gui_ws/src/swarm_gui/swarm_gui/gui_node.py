@@ -3,16 +3,17 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 
-#PyQT5 Depdendencies
-import numpy
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel
-from PyQt5.QtCore import QSize, Qt
-import sys
+#pyqt5 dependencies
+from PyQt5.QtWidgets import QApplication
+
+#helper classes
+#ros is very cool and intutive: https://stackoverflow.com/questions/57426715/import-modules-in-package-in-ros2
+from swarm_gui.gui_helper import gui_app
 
 #Other requirements
 from threading import Thread #need to run both GUI + ros at same time
 
-
+## ROS Node ##
 class MinimalSubscriber(Node):
 
     def __init__(self, gui_app):
@@ -28,27 +29,20 @@ class MinimalSubscriber(Node):
 
     def listener_callback(self, msg):
         self.get_logger().info('I heard: "%s"' % msg.data)
-        self.app.label.setText(f"Rx: {msg.data}")
 
-#https://www.pythonguis.com/tutorials/creating-your-first-pyqt-window/
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-
-        self.setWindowTitle("My App")
-        # button = QPushButton("Press me!")
-        self.label = QLabel("Rx: ")
-
-        self.setCentralWidget(self.label)
+        #simulate what would happen if agents we're slowly moving
+        agent_states = self.app.agent_states
+        agent_states[0][1] += 0.01
+        self.app.tab_list[0].update_agent_plots(agent_states)
 
 def main(args=None):
     rclpy.init(args=args)
 
-    
-
     app = QApplication([])
-    window = MainWindow()
+    window = gui_app()
+    window.resize(1000, 600)
     window.show()
+
 
     #setup the ROS node and the GUI
     minimal_subscriber = MinimalSubscriber(window)

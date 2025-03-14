@@ -1,0 +1,392 @@
+#PyQT5 Depdendencies
+import numpy as np
+from PyQt5.QtWidgets import QMainWindow, QLabel, QWidget, QTabWidget, QPushButton, QTableWidget, QTableWidgetItem, QComboBox, QLineEdit, QTextEdit #ui elements
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout #layouts
+from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtGui import QColor
+import pyqtgraph as pg 
+import sys
+from swarm_gui.agent_plot_helper import init_plot, update_plot
+
+#used to save the formations
+import yaml
+import tkinter as tk
+from tkinter import filedialog
+
+
+#see tutorial at https://www.pythonguis.com/tutorials/plotting-pyqtgraph/
+class sim_tab(QWidget):
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        #need a static reference to the shared main app state
+        self.main_app = parent
+
+        self.tab_layout = QVBoxLayout()
+        self.setLayout(self.tab_layout)
+
+        #this is going to be the view graph until we get a FPV
+        self.central_view = pg.PlotWidget()
+        self.tab_layout.addWidget(self.central_view)
+        
+        #setup the plot
+        self.central_view.setBackground("w")
+        self.central_view.setMouseEnabled(x=False, y=False) #disable scrolling + zooming on the plot (we're gonna manage that)
+        self.central_view.setAspectLocked(True)
+
+        self.agent_plot_list = []
+        self.agent_goal_list = []
+        self.goal_radius = 0.1
+        self.init_agent_plots()
+
+
+    def init_agent_plots(self):
+        """
+        """
+        self.agent_plot_list, self.agent_goal_list = init_plot(self.central_view,
+                                                               self.main_app.agent_states,
+                                                               self.main_app.get_agent_deviations(),
+                                                               self.main_app.color_list,
+                                                               self.goal_radius)
+
+    def update_agent_plots(self, updated_agent_states):
+        """
+        """
+
+        #update stuff provided by the function call
+        self.main_app.agent_states = updated_agent_states
+
+        update_plot(self.central_view, 
+                    self.agent_plot_list, 
+                    self.agent_goal_list, 
+                    self.main_app.agent_states, 
+                    self.main_app.get_agent_deviations(), 
+                    self.goal_radius)
+
+
+#helper class for the formation tab. Will likely be useful for later    
+class formation():
+    def __init__(self, deviations, name = "", description = ""):
+        self.agent_deviations = deviations
+        self.description = description
+        self.name = name
+
+class formation_tab(QWidget):
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        self.main_app:gui_app = parent
+
+        self.top_level_tab_layout = QHBoxLayout()
+
+        #create a plot to show the formation being designed
+        self.formation_view_plot = pg.PlotWidget()
+        self.top_level_tab_layout.addWidget(self.formation_view_plot)
+        self.agent_plot_list = []
+        self.init_plots()
+
+        #add GUI elements on the right side
+        self.right_side_layout = QVBoxLayout()
+
+        self.formation_dropdown = QComboBox(self)
+        self.update_dropdown(update=False) #populate the drop down
+        self.formation_dropdown.currentIndexChanged.connect(self.formation_selection_updated)
+        
+        #intiailize the name text input
+        self.name_layout = QHBoxLayout()
+        self.name_label = QLabel("Name:")
+        self.formation_name = QLineEdit(self)
+        self.name_layout.addWidget(self.name_label)
+        self.name_layout.addWidget(self.formation_name)
+
+        #setup the description text input
+        self.description_layout = QHBoxLayout()
+        self.description_label = QLabel("Description:")
+        self.formation_description = QTextEdit(self)
+        self.description_layout.addWidget(self.description_label)
+        self.description_layout.addWidget(self.formation_description)
+
+        #setup the table with the agent colors
+        self.num_cols = 3
+        self.formation_table = QTableWidget(self.main_app.num_agents, self.num_cols, parent = self)
+        self.formation_table.setHorizontalHeaderLabels(["Agent Color", "X", "Y"])
+        self.formation_table.setVerticalHeaderLabels([str(element) for element in range(self.main_app.num_agents)])
+        for agent_idx in range(self.main_app.num_agents):
+            item = QTableWidgetItem("")
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+            item.setBackground(QColor(self.main_app.color_list[agent_idx]))
+            self.formation_table.setItem(agent_idx, 0, item)
+
+        #set the leader agent state and don't make it editable
+        for col_idx in range(1, self.num_cols):
+            item = QTableWidgetItem("0.0")
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+            self.formation_table.setItem(0, col_idx, item)
+
+        self.save_load_layout = QHBoxLayout()
+        self.save_formations_button = QPushButton("Save Formations", self)
+        self.save_formations_button.clicked.connect(self.save_formations_to_disk)
+        self.load_formations_button = QPushButton("Load Formations", self)
+        self.load_formations_button.clicked.connect(self.load_formations_from_disk)
+        self.save_load_layout.addWidget(self.save_formations_button)
+        self.save_load_layout.addWidget(self.load_formations_button)
+        
+        #load in the formation data
+        self.load_formation(self.main_app.formation_list[self.main_app.selected_formation])
+
+        #make update cell function call
+        self.formation_table.cellChanged.connect(self.table_cell_updated)
+
+        #add the push button to add new formations
+        self.formation_update_button = QPushButton("Update")
+        self.formation_update_button.clicked.connect(self.save_or_update_formation_clicked)
+        
+        #add all the widgets
+        self.right_side_layout.addWidget(self.formation_dropdown)
+        self.right_side_layout.addLayout(self.name_layout)
+        self.right_side_layout.addLayout(self.description_layout)
+        self.right_side_layout.addWidget(self.formation_table)
+        self.right_side_layout.addWidget(self.formation_update_button)
+        self.right_side_layout.addLayout(self.save_load_layout)
+
+        self.top_level_tab_layout.addLayout(self.right_side_layout)
+
+        #setup the plot
+        self.formation_view_plot.setBackground("w")
+        self.formation_view_plot.setMouseEnabled(x=False, y=False) #disable scrolling + zooming on the plot (we're gonna manage that)
+        self.formation_view_plot.showGrid(x=True, y= True)
+        self.formation_view_plot.setAspectLocked(True)
+
+        #setup the layout
+        self.setLayout(self.top_level_tab_layout)
+
+    def update_dropdown(self, update = True):
+        """
+        """
+
+        #clear all items
+        self.formation_dropdown.clear()
+
+        for formation_idx in range(len(self.main_app.formation_list)):
+            self.formation_dropdown.addItem(self.main_app.formation_list[formation_idx].name)
+
+        self.formation_dropdown.addItem("Create Formation") #this one will be used to add new formations
+
+        if update:
+            self.formation_dropdown.setCurrentIndex(0)
+            self.load_formation(self.main_app.formation_list[0])
+
+
+    def load_formation(self, formation:formation):
+        """
+        """
+        #set the name line edit
+        self.formation_name.setText(formation.name)
+
+        #set the multiline description
+        self.formation_description.setText(formation.description)
+
+        #set the data in the table
+        for agent_idx in range(1, self.main_app.num_agents):
+            x_item = QTableWidgetItem(str(formation.agent_deviations[agent_idx][0]))
+            y_item = QTableWidgetItem(str(formation.agent_deviations[agent_idx][1]))
+            self.formation_table.setItem(agent_idx, 1, x_item)
+            self.formation_table.setItem(agent_idx, 2, y_item)
+
+        self.update_plots(formation)
+
+
+    def init_plots(self):
+        """
+        """
+        self.agent_plot_list, agent_goal_list = init_plot(self.formation_view_plot,
+                                                          self.main_app.get_agent_deviations(selection = 0),
+                                                          self.main_app.get_agent_deviations(selection = 0),
+                                                          self.main_app.color_list,
+                                                          1) #placeholder goal radius
+        
+        #remove all the agent goals
+        for item in agent_goal_list:
+            self.formation_view_plot.removeItem(item)
+        
+
+    def update_plots(self, formation:formation):
+        """
+        """
+
+        update_plot(self.formation_view_plot, 
+                    self.agent_plot_list, 
+                    [], 
+                    formation.agent_deviations, 
+                    [], 
+                    0)
+
+
+    def table_cell_updated(self, row, col):
+
+        table_data = float(self.formation_table.item(row, col).text())
+
+        agent_selection = row
+        update_x = col - 1 == 0
+
+        static_col = col + 1 if update_x else col -1
+        static_data = float(self.formation_table.item(row, static_col).text())
+
+        plot_to_update = self.agent_plot_list[agent_selection]
+        x_data = table_data if update_x else static_data
+        y_data = table_data if not update_x else static_data
+        plot_to_update.setData([x_data], [y_data])
+
+
+    def formation_selection_updated(self, index):
+        """
+        """
+
+        item_count = self.formation_dropdown.count()
+
+        #TODO: handle new formation setting
+        if index != item_count - 1:
+            selected_formation = self.main_app.formation_list[index]
+        else:
+            selected_formation = formation(np.zeros((self.main_app.num_agents, self.main_app.state_dim)))
+            self.formation_update_button.setText("Save")
+        
+        self.load_formation(selected_formation)
+
+    def save_or_update_formation_clicked(self):
+
+        def get_data_from_table(table:QTableWidget):
+            
+            deviations = np.zeros((self.main_app.num_agents, self.main_app.state_dim))
+
+            for agent_idx in range(self.main_app.num_agents):
+                deviations[agent_idx][0] = float(self.formation_table.item(agent_idx, 1).text())
+                deviations[agent_idx][1] = float(self.formation_table.item(agent_idx, 2).text())
+
+            return deviations
+        
+        curr_formation = self.formation_dropdown.currentIndex()
+        num_formations = self.formation_dropdown.count()
+
+        update_name = self.formation_name.text()
+        update_description = self.formation_description.toPlainText()
+        update_deviations = get_data_from_table(self.formation_table)
+
+        #handle the case when we're adding a new formation
+        if curr_formation == num_formations - 1 :
+            new_formation = formation(update_deviations, name = update_name, description= update_description)
+            self.main_app.formation_list.append(new_formation)
+            self.formation_dropdown.insertItem(num_formations-1, update_name)
+
+        #udpate the formation info
+        else:
+            self.main_app.formation_list[curr_formation].name = update_name
+            self.main_app.formation_list[curr_formation].description = update_description
+            self.main_app.formation_list[curr_formation].agent_deviations = update_deviations
+
+    def save_formations_to_disk(self):
+        """
+        """
+        save_dict = {}
+        for formation_idx in range(len(self.main_app.formation_list)):
+            label = f"formation{formation_idx}"
+            curr_formation = self.main_app.formation_list[formation_idx]
+            save_dict[label] = {"name":curr_formation.name, 
+                                "description":curr_formation.description, 
+                                "agent_deviations":curr_formation.agent_deviations.tolist()}
+        
+        #based on info I find online for getting a save pop up
+        # https://stackoverflow.com/questions/75478982/is-there-a-way-to-choose-where-to-save-a-file-via-a-pop-up-window-in-python
+        root = tk.Tk()
+        root.withdraw()
+
+        save_name = filedialog.asksaveasfilename(defaultextension=".yaml")
+
+        if save_name:
+            with open(save_name, "w") as file:
+                yaml.dump(save_dict, file)
+
+    def load_formations_from_disk(self):
+
+        #https://docs.python.org/3/library/dialog.html
+        root = tk.Tk()
+        root.withdraw()
+
+        file_name = filedialog.askopenfilename(defaultextension="*.yaml")
+
+        if file_name:
+            with open(file_name, "r") as file:
+                data_dictionary = yaml.safe_load(file)
+
+                key_list = list(data_dictionary.keys())
+                formation_list = []
+                for key_idx in range(len(key_list)):
+                    formation_list.append(formation(deviations=np.array(data_dictionary[key_list[key_idx]]["agent_deviations"]),
+                                                    name=data_dictionary[key_list[key_idx]]["name"],
+                                                    description=data_dictionary[key_list[key_idx]]["description"]))
+                self.main_app.formation_list = formation_list
+                self.main_app.selected_formation = 0
+
+                self.update_dropdown()
+
+#TODO: set this one up later
+class setting_tab(QWidget):
+    pass
+
+#https://www.pythonguis.com/tutorials/creating-your-first-pyqt-window/
+class gui_app(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Control GUI")
+
+        #Placeholder for now, starting agent states
+        starting_offset = 0.5*np.sqrt(2)/2
+        self.num_agents = 5
+        self.state_dim = 4
+        agent_states = np.zeros((self.num_agents, self.state_dim))
+        agent_states[0] = np.array([0, 0, 0, 0])
+        agent_states[1] = np.array([0.5, 0, 0, 0])
+        agent_states[2] = np.array([starting_offset, -starting_offset, 0, 0])
+        agent_states[3] = np.array([0, -0.5, 0, 0])
+        agent_states[4] = np.array([-starting_offset, -starting_offset, 0, 0])
+
+        self.agent_states = agent_states
+
+        #Placeholder desired agent states
+        desired_deviations = np.zeros((self.num_agents, self.state_dim))
+        desired_deviations[0] = np.zeros(4)
+        desired_deviations[1] = np.array([1, 0, 0 ,0])
+        desired_deviations[2] = np.array([0, 1, 0, 0])
+        desired_deviations[3] = np.array([-1, 0, 0, 0])
+        desired_deviations[4] = np.array([0, -1, 0, 0])
+
+        #adding initial formation + testing
+        init_formation = formation(desired_deviations, name = "Cross", description="Default formation: cross")
+
+        self.formation_list = [init_formation]
+        self.selected_formation = 0
+        
+        self.color_list = ["green", "red", "blue", "black", "magenta" ]
+
+        self.tab_list = [sim_tab(self), formation_tab(self)]
+
+        #the tabs contain our primary gui elements, so we create a tab widget and add our tabs to it
+        self.tab_widget = QTabWidget()
+        self.setCentralWidget(self.tab_widget)
+
+        #save the setting tab for later
+        self.tab_widget.addTab(self.tab_list[0], "Control")
+        self.tab_widget.addTab(self.tab_list[1], "Formations")
+
+    def get_agent_deviations(self, selection = None):
+
+        if selection is None:
+            selection = self.selected_formation
+        return self.formation_list[selection].agent_deviations
+
+
+
+
