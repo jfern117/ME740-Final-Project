@@ -14,7 +14,7 @@ from swarm_gui.gui_helper import gui_app
 from threading import Thread #need to run both GUI + ros at same time
 
 ## ROS Node ##
-class MinimalSubscriber(Node):
+class Gui_Handler(Node):
 
     def __init__(self, gui_app):
         super().__init__('minimal_subscriber')
@@ -28,7 +28,7 @@ class MinimalSubscriber(Node):
         self.app = gui_app
 
     def listener_callback(self, msg):
-        self.get_logger().info('I heard: "%s"' % msg.data)
+        # self.get_logger().info('I heard: "%s"' % msg.data)
 
         #simulate what would happen if agents we're slowly moving
         agent_states = self.app.agent_states
@@ -45,11 +45,11 @@ def main(args=None):
 
 
     #setup the ROS node and the GUI
-    minimal_subscriber = MinimalSubscriber(window)
+    gui_handler_node = Gui_Handler(window)
 
     #setup the thread to run the ros messaging
     def ros_thread_func():
-        rclpy.spin(minimal_subscriber)
+        rclpy.spin(gui_handler_node)
     
     #since this is a daemon, it auto-terminates when the program finishes
     ros_ctrl_thread = Thread(target=ros_thread_func, daemon=True)
@@ -61,7 +61,7 @@ def main(args=None):
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-    minimal_subscriber.destroy_node()
+    gui_handler_node.destroy_node()
     rclpy.shutdown()
 
 
