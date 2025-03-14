@@ -8,6 +8,11 @@ import pyqtgraph as pg
 import sys
 from swarm_gui.agent_plot_helper import init_plot, update_plot
 
+#used to save the formations
+import yaml
+import tkinter as tk
+from tkinter import filedialog
+
 
 #see tutorial at https://www.pythonguis.com/tutorials/plotting-pyqtgraph/
 class sim_tab(QWidget):
@@ -86,10 +91,9 @@ class formation_tab(QWidget):
         self.right_side_layout = QVBoxLayout()
 
         self.formation_dropdown = QComboBox(self)
-        self.formation_dropdown.addItem(self.main_app.formation_list[self.main_app.selected_formation].name)
-        self.formation_dropdown.addItem("Create Formation") #this one will be used to add new formations
+        self.update_dropdown(update=False) #populate the drop down
         self.formation_dropdown.currentIndexChanged.connect(self.formation_selection_updated)
-
+        
         #intiailize the name text input
         self.name_layout = QHBoxLayout()
         self.name_label = QLabel("Name:")
@@ -103,7 +107,6 @@ class formation_tab(QWidget):
         self.formation_description = QTextEdit(self)
         self.description_layout.addWidget(self.description_label)
         self.description_layout.addWidget(self.formation_description)
-
 
         #setup the table with the agent colors
         self.num_cols = 3
@@ -122,6 +125,13 @@ class formation_tab(QWidget):
             item.setFlags(item.flags() & ~Qt.ItemIsEditable)
             self.formation_table.setItem(0, col_idx, item)
 
+        self.save_load_layout = QHBoxLayout()
+        self.save_formations_button = QPushButton("Save Formations", self)
+        self.save_formations_button.clicked.connect(self.save_formations_to_disk)
+        self.load_formations_button = QPushButton("Load Formations", self)
+        self.load_formations_button.clicked.connect(self.load_formations_from_disk)
+        self.save_load_layout.addWidget(self.save_formations_button)
+        self.save_load_layout.addWidget(self.load_formations_button)
         
         #load in the formation data
         self.load_formation(self.main_app.formation_list[self.main_app.selected_formation])
@@ -130,14 +140,16 @@ class formation_tab(QWidget):
         self.formation_table.cellChanged.connect(self.table_cell_updated)
 
         #add the push button to add new formations
-        self.add_formation_button = QPushButton("Update")
-
+        self.formation_update_button = QPushButton("Update")
+        self.formation_update_button.clicked.connect(self.save_or_update_formation_clicked)
+        
         #add all the widgets
         self.right_side_layout.addWidget(self.formation_dropdown)
         self.right_side_layout.addLayout(self.name_layout)
         self.right_side_layout.addLayout(self.description_layout)
         self.right_side_layout.addWidget(self.formation_table)
-        self.right_side_layout.addWidget(self.add_formation_button)
+        self.right_side_layout.addWidget(self.formation_update_button)
+        self.right_side_layout.addLayout(self.save_load_layout)
 
         self.top_level_tab_layout.addLayout(self.right_side_layout)
 
@@ -149,6 +161,22 @@ class formation_tab(QWidget):
 
         #setup the layout
         self.setLayout(self.top_level_tab_layout)
+
+    def update_dropdown(self, update = True):
+        """
+        """
+
+        #clear all items
+        self.formation_dropdown.clear()
+
+        for formation_idx in range(len(self.main_app.formation_list)):
+            self.formation_dropdown.addItem(self.main_app.formation_list[formation_idx].name)
+
+        self.formation_dropdown.addItem("Create Formation") #this one will be used to add new formations
+
+        if update:
+            self.formation_dropdown.setCurrentIndex(0)
+            self.load_formation(self.main_app.formation_list[0])
 
 
     def load_formation(self, formation:formation):
@@ -184,7 +212,6 @@ class formation_tab(QWidget):
             self.formation_view_plot.removeItem(item)
         
 
-
     def update_plots(self, formation:formation):
         """
         """
@@ -207,7 +234,6 @@ class formation_tab(QWidget):
         static_col = col + 1 if update_x else col -1
         static_data = float(self.formation_table.item(row, static_col).text())
 
-
         plot_to_update = self.agent_plot_list[agent_selection]
         x_data = table_data if update_x else static_data
         y_data = table_data if not update_x else static_data
@@ -225,14 +251,85 @@ class formation_tab(QWidget):
             selected_formation = self.main_app.formation_list[index]
         else:
             selected_formation = formation(np.zeros((self.main_app.num_agents, self.main_app.state_dim)))
-            self.add_formation_button.setText("Save")
+            self.formation_update_button.setText("Save")
         
         self.load_formation(selected_formation)
 
+    def save_or_update_formation_clicked(self):
+
+        def get_data_from_table(table:QTableWidget):
+            
+            deviations = np.zeros((self.main_app.num_agents, self.main_app.state_dim))
+
+            for agent_idx in range(self.main_app.num_agents):
+                deviations[agent_idx][0] = float(self.formation_table.item(agent_idx, 1).text())
+                deviations[agent_idx][1] = float(self.formation_table.item(agent_idx, 2).text())
+
+            return deviations
         
-    
+        curr_formation = self.formation_dropdown.currentIndex()
+        num_formations = self.formation_dropdown.count()
 
+        update_name = self.formation_name.text()
+        update_description = self.formation_description.toPlainText()
+        update_deviations = get_data_from_table(self.formation_table)
 
+        #handle the case when we're adding a new formation
+        if curr_formation == num_formations - 1 :
+            new_formation = formation(update_deviations, name = update_name, description= update_description)
+            self.main_app.formation_list.append(new_formation)
+            self.formation_dropdown.insertItem(num_formations-1, update_name)
+
+        #udpate the formation info
+        else:
+            self.main_app.formation_list[curr_formation].name = update_name
+            self.main_app.formation_list[curr_formation].description = update_description
+            self.main_app.formation_list[curr_formation].agent_deviations = update_deviations
+
+    def save_formations_to_disk(self):
+        """
+        """
+        save_dict = {}
+        for formation_idx in range(len(self.main_app.formation_list)):
+            label = f"formation{formation_idx}"
+            curr_formation = self.main_app.formation_list[formation_idx]
+            save_dict[label] = {"name":curr_formation.name, 
+                                "description":curr_formation.description, 
+                                "agent_deviations":curr_formation.agent_deviations.tolist()}
+        
+        #based on info I find online for getting a save pop up
+        # https://stackoverflow.com/questions/75478982/is-there-a-way-to-choose-where-to-save-a-file-via-a-pop-up-window-in-python
+        root = tk.Tk()
+        root.withdraw()
+
+        save_name = filedialog.asksaveasfilename(defaultextension=".yaml")
+
+        if save_name:
+            with open(save_name, "w") as file:
+                yaml.dump(save_dict, file)
+
+    def load_formations_from_disk(self):
+
+        #https://docs.python.org/3/library/dialog.html
+        root = tk.Tk()
+        root.withdraw()
+
+        file_name = filedialog.askopenfilename(defaultextension="*.yaml")
+
+        if file_name:
+            with open(file_name, "r") as file:
+                data_dictionary = yaml.safe_load(file)
+
+                key_list = list(data_dictionary.keys())
+                formation_list = []
+                for key_idx in range(len(key_list)):
+                    formation_list.append(formation(deviations=np.array(data_dictionary[key_list[key_idx]]["agent_deviations"]),
+                                                    name=data_dictionary[key_list[key_idx]]["name"],
+                                                    description=data_dictionary[key_list[key_idx]]["description"]))
+                self.main_app.formation_list = formation_list
+                self.main_app.selected_formation = 0
+
+                self.update_dropdown()
 
 #TODO: set this one up later
 class setting_tab(QWidget):
