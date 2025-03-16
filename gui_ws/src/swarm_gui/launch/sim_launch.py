@@ -9,14 +9,14 @@ def generate_launch_description():
     #Simulation node
     node_list.append(
         Node(package = 'swarm_gui',
-             executable ='talker',
-             name = 'sim'
+             executable ='sim',
+             name = 'sim_handler'
         )
     )
 
     #gui handler node
     node_list.append(Node(package = 'swarm_gui',
-                     executable = 'listener',
+                     executable = 'gui',
                      name = 'gui_handler'
         )
     )

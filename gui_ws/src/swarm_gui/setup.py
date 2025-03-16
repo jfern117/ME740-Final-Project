@@ -23,9 +23,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'test_node = swarm_gui.test_node:main',
-            'talker = swarm_gui.test_publisher:main',
-            'listener = swarm_gui.gui_node:main'
+            'sim = swarm_gui.sim_node:main',
+            'gui = swarm_gui.gui_node:main'
         ],
     },
 )

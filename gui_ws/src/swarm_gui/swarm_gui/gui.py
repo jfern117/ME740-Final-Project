@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
 import pyqtgraph as pg 
 from swarm_gui.agent_plot_helper import init_plot, update_plot
+from swarm_gui.messaging_helper import msg_to_array, array_to_msg
 
 #used to save the formations
 import yaml
@@ -32,6 +33,7 @@ class sim_tab(QWidget):
         #setup the plot
         self.central_view.setBackground("w")
         self.central_view.setMouseEnabled(x=False, y=False) #disable scrolling + zooming on the plot (we're gonna manage that)
+        self.central_view.showGrid(x=True, y= True)
         self.central_view.setAspectLocked(True)
 
         self.agent_plot_list = []
@@ -340,19 +342,12 @@ class gui_app(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Control GUI")
+        self.ros_node = None
 
         #Placeholder for now, starting agent states
         starting_offset = 0.5*np.sqrt(2)/2
         self.num_agents = 5
         self.state_dim = 4
-        agent_states = np.zeros((self.num_agents, self.state_dim))
-        agent_states[0] = np.array([0, 0, 0, 0])
-        agent_states[1] = np.array([0.5, 0, 0, 0])
-        agent_states[2] = np.array([starting_offset, -starting_offset, 0, 0])
-        agent_states[3] = np.array([0, -0.5, 0, 0])
-        agent_states[4] = np.array([-starting_offset, -starting_offset, 0, 0])
-
-        self.agent_states = agent_states
 
         #Placeholder desired agent states
         desired_deviations = np.zeros((self.num_agents, self.state_dim))
@@ -361,6 +356,9 @@ class gui_app(QMainWindow):
         desired_deviations[2] = np.array([0, 1, 0, 0])
         desired_deviations[3] = np.array([-1, 0, 0, 0])
         desired_deviations[4] = np.array([0, -1, 0, 0])
+
+        #The sim has GT on the agent states, the GUI needs to be provided them
+        self.agent_states = np.zeros(np.shape(desired_deviations))
 
         #adding initial formation + testing
         init_formation = formation(desired_deviations, name = "Cross", description="Default formation: cross")
@@ -386,6 +384,16 @@ class gui_app(QMainWindow):
             selection = self.selected_formation
         return self.formation_list[selection].agent_deviations
 
+    #GUI/ROS interface functions
+    #This may not be the best way to handle this but I believe it works for now, and can be fixed later
+    def set_ros_node(self, ros_node):
+        self.ros_node = ros_node
 
+    def update_agent_state(self, agent_states):
+        self.agent_states = agent_states
+
+    def publish_deviations(self):
+        msg = array_to_msg(self.formation_list[self.selected_formation].agent_deviations)
+        self.ros_node.deviation_publisher_.publish(msg)
 
 

@@ -9,13 +9,15 @@ import numpy as np
 
 #helpers
 from swarm_gui.sim_helper import sim_update
+from swarm_gui.messaging_helper import array_to_msg, msg_to_array
 
 
 class Sim_handler(Node):
 
     def __init__(self):
         super().__init__('sim_handler')
-        self.state_publisher_ = self.create_publisher(Float64MultiArray, 'agents_states', 10)
+        self.state_publisher_ = self.create_publisher(Float64MultiArray, 'agent_states', 10)
+        self.deviation_subcriber_ = self.create_subscription(Float64MultiArray, "agent_deviations", self.deviation_update_callback, 10)
         fps = 20
         self.timer_period = 1/fps
         self.timer = self.create_timer(self.timer_period, self.sim_frame_callback)
@@ -27,7 +29,7 @@ class Sim_handler(Node):
         self.control_dim = 2
         self.network_graph = nx.complete_graph(self.num_agents)
 
-        self.A = np.zeros(self.state_dim, self.state_dim)
+        self.A = np.zeros((self.state_dim, self.state_dim))
         self.A[0, 2] = 1
         self.A[1, 3] = 1
 
@@ -53,7 +55,7 @@ class Sim_handler(Node):
         #placeholder starting agent states
         starting_offset = 0.5*np.sqrt(2)/2
         agent_states = np.zeros((self.num_agents, self.state_dim))
-        agent_states[0] = np.array([0, 0, 0, 0])
+        agent_states[0] = np.array([0, 0, 0.1, 0.1]) #add initial velocity to demo leader follower setup while working on teleop
         agent_states[1] = np.array([0.5, 0, 0, 0])
         agent_states[2] = np.array([starting_offset, -starting_offset, 0, 0])
         agent_states[3] = np.array([0, -0.5, 0, 0])
@@ -61,38 +63,33 @@ class Sim_handler(Node):
 
         self.prev_agent_states = agent_states
 
-        #placeholder deviations
-        desired_deviations = np.zeros((self.num_agents, self.state_dim))
-        desired_deviations[0] = np.zeros(4)
-        desired_deviations[1] = np.array([1, 0, 0 ,0])
-        desired_deviations[2] = np.array([0, 1, 0, 0])
-        desired_deviations[3] = np.array([-1, 0, 0, 0])
-        desired_deviations[4] = np.array([0, -1, 0, 0])
-
-        self.current_desired_deviations = desired_deviations
+        #The sim does not have GT on the agent deviations and must be provided this from the GUI. 
+        #As a basic placeholder, set them to the agent states
+        self.current_desired_deviations = None
 
 
 
-    #TODO: implement
     def sim_frame_callback(self):
 
+        #Only step the sim when we've gotten our deviations from the GUI
+        if self.current_desired_deviations is not None:
+            udpated_agent_states = sim_update(self.A,
+                                            self.B,
+                                            self.prev_agent_states,
+                                            self.current_leader_control,
+                                            self.network_graph,
+                                            self.current_desired_deviations,
+                                            self.consensus_gain,
+                                            self.timer_period)
 
-        udpated_agent_states = sim_update(self.A,
-                                          self.B,
-                                          self.prev_agent_states,
-                                          self.current_leader_control,
-                                          self.network_graph,
-                                          self.current_desired_deviations,
-                                          self.consensus_gain,
-                                          self.timer_period)
+            self.prev_agent_states = udpated_agent_states
 
-
-
-        #TODO: make helper functions to format agent states into message format and to take the message out
-
-        msg = Float64MultiArray()
+        msg = array_to_msg(self.prev_agent_states)
         self.state_publisher_.publish(msg)
 
+    def deviation_update_callback(self, msg):
+        desired_deviations = msg_to_array(msg)
+        self.current_desired_deviations = desired_deviations
 
 def main(args=None):
     rclpy.init(args=args)
@@ -106,7 +103,6 @@ def main(args=None):
     # when the garbage collector destroys the node object)
     gui_publisher.destroy_node()
     rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()

@@ -1,14 +1,15 @@
 #ROS Depdendencies
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import Float64MultiArray
 
 #pyqt5 dependencies
 from PyQt5.QtWidgets import QApplication
 
 #helper classes
 #ros is very cool and intutive: https://stackoverflow.com/questions/57426715/import-modules-in-package-in-ros2
-from swarm_gui.gui_helper import gui_app
+from swarm_gui.gui import gui_app
+from swarm_gui.messaging_helper import msg_to_array, array_to_msg
 
 #Other requirements
 from threading import Thread #need to run both GUI + ros at same time
@@ -16,36 +17,40 @@ from threading import Thread #need to run both GUI + ros at same time
 ## ROS Node ##
 class Gui_Handler(Node):
 
-    def __init__(self, gui_app):
+    def __init__(self, gui_app:gui_app):
         super().__init__('gui_handler')
         self.subscription = self.create_subscription(
-            String,
-            'topic',
-            self.listener_callback,
+            Float64MultiArray,
+            'agent_states',
+            self.agent_state_callback,
             10)
-        self.subscription  # prevent unused variable warning
+        
+        self.deviation_publisher_ = self.create_publisher(Float64MultiArray,
+                                                          "agent_deviations",
+                                                          10)
 
-        self.app = gui_app
+        self.main_app = gui_app
 
-    def listener_callback(self, msg):
-        # self.get_logger().info('I heard: "%s"' % msg.data)
+    def agent_state_callback(self, msg):
 
-        #simulate what would happen if agents we're slowly moving
-        agent_states = self.app.agent_states
-        agent_states[0][1] += 0.01
-        self.app.tab_list[0].update_agent_plots(agent_states)
+        #TODO: make this less janky. For now we just publish each time we get the state
+        self.main_app.publish_deviations()
+
+        agent_states = msg_to_array(msg)
+        self.main_app.tab_list[0].update_agent_plots(agent_states) #this helper function updates the agent states
 
 def main(args=None):
     rclpy.init(args=args)
 
+    #setup the GUI
     app = QApplication([])
     window = gui_app()
     window.resize(1000, 600)
     window.show()
 
-
-    #setup the ROS node and the GUI
+    #setup the ROS node. The GUI is the parent for the ROS node, but currently needs to be made after it, so there's a method to setting it
     gui_handler_node = Gui_Handler(window)
+    window.set_ros_node(gui_handler_node)
 
     #setup the thread to run the ros messaging
     def ros_thread_func():
