@@ -1,0 +1,48 @@
+formation0:
+  agent_deviations:
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+  - - -1.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - -1.0
+    - 0.0
+    - 0.0
+  description: 'Default formation: cross'
+  name: Cross
+formation1:
+  agent_deviations:
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 10.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  description: test
+  name: New

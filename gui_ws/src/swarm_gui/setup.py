@@ -24,7 +24,8 @@ setup(
     entry_points={
         'console_scripts': [
             'sim = swarm_gui.sim_node:main',
-            'gui = swarm_gui.gui_node:main'
+            'gui = swarm_gui.gui_node:main',
+            'controller = swarm_gui.keyboard_control_node:main',
         ],
     },
 )

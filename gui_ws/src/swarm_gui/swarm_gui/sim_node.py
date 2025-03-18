@@ -94,14 +94,14 @@ class Sim_handler(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    gui_publisher = Sim_handler()
+    sim_node = Sim_handler()
 
-    rclpy.spin(gui_publisher)
+    rclpy.spin(sim_node)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-    gui_publisher.destroy_node()
+    sim_node.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
