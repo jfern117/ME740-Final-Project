@@ -18,6 +18,7 @@ class Sim_handler(Node):
         super().__init__('sim_handler')
         self.state_publisher_ = self.create_publisher(Float64MultiArray, 'agent_states', 10)
         self.deviation_subcriber_ = self.create_subscription(Float64MultiArray, "agent_deviations", self.deviation_update_callback, 10)
+        self.leader_control_subscriber_ = self.create_subscription(Float64MultiArray, "leader_control", self.control_update_callback, 10)
         fps = 20
         self.timer_period = 1/fps
         self.timer = self.create_timer(self.timer_period, self.sim_frame_callback)
@@ -55,7 +56,7 @@ class Sim_handler(Node):
         #placeholder starting agent states
         starting_offset = 0.5*np.sqrt(2)/2
         agent_states = np.zeros((self.num_agents, self.state_dim))
-        agent_states[0] = np.array([0, 0, 0.1, 0.1]) #add initial velocity to demo leader follower setup while working on teleop
+        agent_states[0] = np.array([0, 0, 0, 0]) #add initial velocity to demo leader follower setup while working on teleop
         agent_states[1] = np.array([0.5, 0, 0, 0])
         agent_states[2] = np.array([starting_offset, -starting_offset, 0, 0])
         agent_states[3] = np.array([0, -0.5, 0, 0])
@@ -90,6 +91,10 @@ class Sim_handler(Node):
     def deviation_update_callback(self, msg):
         desired_deviations = msg_to_array(msg)
         self.current_desired_deviations = desired_deviations
+
+    def control_update_callback(self, msg):
+        control = msg_to_array(msg).flatten()
+        self.current_leader_control = control
 
 def main(args=None):
     rclpy.init(args=args)

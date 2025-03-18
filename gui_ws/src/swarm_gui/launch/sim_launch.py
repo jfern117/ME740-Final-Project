@@ -21,4 +21,10 @@ def generate_launch_description():
         )
     )
 
+    #keyboard control node
+    node_list.append(Node(package = 'swarm_gui',
+                          executable = 'controller',
+                          name = 'controller_input_handler'
+    ))
+
     return LaunchDescription(node_list)

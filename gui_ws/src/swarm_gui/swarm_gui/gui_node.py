@@ -1,7 +1,7 @@
 #ROS Depdendencies
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Bool, Float64MultiArray
 
 #pyqt5 dependencies
 from PyQt5.QtWidgets import QApplication
@@ -19,11 +19,13 @@ class Gui_Handler(Node):
 
     def __init__(self, gui_app:gui_app):
         super().__init__('gui_handler')
-        self.subscription = self.create_subscription(
+        self.agent_state_sub_ = self.create_subscription(
             Float64MultiArray,
             'agent_states',
             self.agent_state_callback,
             10)
+        
+        self.toggle_formation_sub_ = self.create_subscription(Bool, "formation_toggle", self.formation_toggle_callback, 10)
         
         self.deviation_publisher_ = self.create_publisher(Float64MultiArray,
                                                           "agent_deviations",
@@ -38,6 +40,9 @@ class Gui_Handler(Node):
 
         agent_states = msg_to_array(msg)
         self.main_app.tab_list[0].update_agent_plots(agent_states) #this helper function updates the agent states
+
+    def formation_toggle_callback(self, msg):
+        self.main_app.selected_formation = (self.main_app.selected_formation + 1) % len(self.main_app.formation_list)
 
 def main(args=None):
     rclpy.init(args=args)
