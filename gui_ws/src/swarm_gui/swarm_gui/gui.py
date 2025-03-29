@@ -58,12 +58,15 @@ class sim_tab(QWidget):
         #update stuff provided by the function call
         self.main_app.agent_states = updated_agent_states
 
-        update_plot(self.central_view, 
-                    self.agent_plot_list, 
-                    self.agent_goal_list, 
-                    self.main_app.agent_states, 
-                    self.main_app.get_agent_deviations(), 
-                    self.goal_radius)
+        #update if this is the selected window (trying to fix bug with udpating plots)
+        if self.main_app.tab_widget.currentIndex() == 0:
+
+            update_plot(self.central_view, 
+                        self.agent_plot_list, 
+                        self.agent_goal_list, 
+                        self.main_app.agent_states, 
+                        self.main_app.get_agent_deviations(), 
+                        self.goal_radius)
 
 
 #helper class for the formation tab. Will likely be useful for later    
@@ -250,6 +253,7 @@ class formation_tab(QWidget):
         #TODO: handle new formation setting
         if index != item_count - 1:
             selected_formation = self.main_app.formation_list[index]
+            self.formation_update_button.setText("Update")
         else:
             selected_formation = formation(np.zeros((self.main_app.num_agents, self.main_app.state_dim)))
             self.formation_update_button.setText("Save")

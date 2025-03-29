@@ -30,19 +30,23 @@ class Gui_Handler(Node):
         self.deviation_publisher_ = self.create_publisher(Float64MultiArray,
                                                           "agent_deviations",
                                                           10)
+        
+        self.init_deviation_sent = False
 
         self.main_app = gui_app
 
     def agent_state_callback(self, msg):
 
-        #TODO: make this less janky. For now we just publish each time we get the state
-        self.main_app.publish_deviations()
-
+        if not self.init_deviation_sent:
+            self.main_app.publish_deviations()
+            self.init_deviation_sent = True
+        
         agent_states = msg_to_array(msg)
         self.main_app.tab_list[0].update_agent_plots(agent_states) #this helper function updates the agent states
 
     def formation_toggle_callback(self, msg):
         self.main_app.selected_formation = (self.main_app.selected_formation + 1) % len(self.main_app.formation_list)
+        self.main_app.publish_deviations()
 
 def main(args=None):
     rclpy.init(args=args)
