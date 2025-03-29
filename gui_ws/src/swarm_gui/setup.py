@@ -1,4 +1,6 @@
 from setuptools import find_packages, setup
+import os
+from glob import glob
 
 package_name = 'swarm_gui'
 
@@ -10,6 +12,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*'))),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -20,9 +23,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'test_node = swarm_gui.test_node:main',
-            'talker = swarm_gui.test_publisher:main',
-            'listener = swarm_gui.gui_node:main'
+            'sim = swarm_gui.sim_node:main',
+            'gui = swarm_gui.gui_node:main',
+            'controller = swarm_gui.keyboard_control_node:main',
         ],
     },
 )

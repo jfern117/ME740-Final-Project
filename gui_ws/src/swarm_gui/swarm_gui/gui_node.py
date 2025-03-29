@@ -1,55 +1,69 @@
 #ROS Depdendencies
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import Bool, Float64MultiArray
 
 #pyqt5 dependencies
 from PyQt5.QtWidgets import QApplication
 
 #helper classes
 #ros is very cool and intutive: https://stackoverflow.com/questions/57426715/import-modules-in-package-in-ros2
-from swarm_gui.gui_helper import gui_app
+from swarm_gui.gui import gui_app
+from swarm_gui.messaging_helper import msg_to_array, array_to_msg
 
 #Other requirements
 from threading import Thread #need to run both GUI + ros at same time
 
 ## ROS Node ##
-class MinimalSubscriber(Node):
+class Gui_Handler(Node):
 
-    def __init__(self, gui_app):
-        super().__init__('minimal_subscriber')
-        self.subscription = self.create_subscription(
-            String,
-            'topic',
-            self.listener_callback,
+    def __init__(self, gui_app:gui_app):
+        super().__init__('gui_handler')
+        self.agent_state_sub_ = self.create_subscription(
+            Float64MultiArray,
+            'agent_states',
+            self.agent_state_callback,
             10)
-        self.subscription  # prevent unused variable warning
+        
+        self.toggle_formation_sub_ = self.create_subscription(Bool, "formation_toggle", self.formation_toggle_callback, 10)
+        
+        self.deviation_publisher_ = self.create_publisher(Float64MultiArray,
+                                                          "agent_deviations",
+                                                          10)
+        
+        self.init_deviation_sent = False
 
-        self.app = gui_app
+        self.main_app = gui_app
 
-    def listener_callback(self, msg):
-        self.get_logger().info('I heard: "%s"' % msg.data)
+    def agent_state_callback(self, msg):
 
-        #simulate what would happen if agents we're slowly moving
-        agent_states = self.app.agent_states
-        agent_states[0][1] += 0.01
-        self.app.tab_list[0].update_agent_plots(agent_states)
+        if not self.init_deviation_sent:
+            self.main_app.publish_deviations()
+            self.init_deviation_sent = True
+        
+        agent_states = msg_to_array(msg)
+        self.main_app.tab_list[0].update_agent_plots(agent_states) #this helper function updates the agent states
+
+    def formation_toggle_callback(self, msg):
+        self.main_app.selected_formation = (self.main_app.selected_formation + 1) % len(self.main_app.formation_list)
+        self.main_app.publish_deviations()
 
 def main(args=None):
     rclpy.init(args=args)
 
+    #setup the GUI
     app = QApplication([])
     window = gui_app()
     window.resize(1000, 600)
     window.show()
 
-
-    #setup the ROS node and the GUI
-    minimal_subscriber = MinimalSubscriber(window)
+    #setup the ROS node. The GUI is the parent for the ROS node, but currently needs to be made after it, so there's a method to setting it
+    gui_handler_node = Gui_Handler(window)
+    window.set_ros_node(gui_handler_node)
 
     #setup the thread to run the ros messaging
     def ros_thread_func():
-        rclpy.spin(minimal_subscriber)
+        rclpy.spin(gui_handler_node)
     
     #since this is a daemon, it auto-terminates when the program finishes
     ros_ctrl_thread = Thread(target=ros_thread_func, daemon=True)
@@ -61,7 +75,7 @@ def main(args=None):
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-    minimal_subscriber.destroy_node()
+    gui_handler_node.destroy_node()
     rclpy.shutdown()
 
 

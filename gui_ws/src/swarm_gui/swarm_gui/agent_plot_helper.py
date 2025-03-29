@@ -1,6 +1,5 @@
 import pyqtgraph as pg
-import numpy as np
-from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtCore import Qt
 
 #We have two, very similar plots, so we can 
 def init_plot(plot:pg.PlotWidget, agent_states, desired_deviations, color_list, goal_radius):
