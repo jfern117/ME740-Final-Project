@@ -42,7 +42,13 @@ class Gui_Handler(Node):
             self.init_deviation_sent = True
         
         agent_states = msg_to_array(msg)
-        self.main_app.tab_list[0].update_agent_plots(agent_states) #this helper function updates the agent states
+
+        #update the agent states
+        self.main_app.tab_list[0].update_agent_states(agent_states) 
+
+        #emit a signal to update the plot (want it to be in the proper thread)
+        self.main_app.tab_list[0].signal_object.plot_update_signal.emit(1)
+
 
     def formation_toggle_callback(self, msg):
         self.main_app.selected_formation = (self.main_app.selected_formation + 1) % len(self.main_app.formation_list)

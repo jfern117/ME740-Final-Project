@@ -2,7 +2,7 @@
 import numpy as np
 from PyQt5.QtWidgets import QMainWindow, QLabel, QWidget, QTabWidget, QPushButton, QTableWidget, QTableWidgetItem, QComboBox, QLineEdit, QTextEdit #ui elements
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout #layouts
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QColor
 import pyqtgraph as pg 
 from swarm_gui.agent_plot_helper import init_plot, update_plot
@@ -12,6 +12,10 @@ from swarm_gui.messaging_helper import msg_to_array, array_to_msg
 import yaml
 import tkinter as tk
 from tkinter import filedialog
+
+
+class plot_signaler(QObject):
+    plot_update_signal = pyqtSignal(int)
 
 
 #see tutorial at https://www.pythonguis.com/tutorials/plotting-pyqtgraph/
@@ -41,6 +45,9 @@ class sim_tab(QWidget):
         self.goal_radius = 0.1
         self.init_agent_plots()
 
+        self.signal_object = plot_signaler()
+        self.signal_object.plot_update_signal.connect(self.update_agent_plots)
+
 
     def init_agent_plots(self):
         """
@@ -51,12 +58,18 @@ class sim_tab(QWidget):
                                                                self.main_app.color_list,
                                                                self.goal_radius)
 
-    def update_agent_plots(self, updated_agent_states):
+    def update_agent_states(self, updated_agent_states):
+        #update stuff provided by the function call
+        self.main_app.agent_states = updated_agent_states
+
+
+    def update_agent_plots(self, int_value):
         """
         """
 
-        #update stuff provided by the function call
-        self.main_app.agent_states = updated_agent_states
+        #giving the option to add cases where this isnt' plotted
+        if not int_value:
+            return
 
         #update if this is the selected window (trying to fix bug with udpating plots)
         if self.main_app.tab_widget.currentIndex() == 0:
