@@ -14,12 +14,14 @@ import tkinter as tk
 from tkinter import filedialog
 
 
-class plot_signaler(QObject):
-    plot_update_signal = pyqtSignal(int)
 
 
 #see tutorial at https://www.pythonguis.com/tutorials/plotting-pyqtgraph/
 class sim_tab(QWidget):
+
+    #If the plot is updated in a different thread, the GUI will very quickly crash. Here is a fix that resolves that: https://stackoverflow.com/questions/64307813/pyqtgraph-stops-updating-and-freezes-when-grapahing-live-sensor-data
+    class plot_signaler(QObject):
+        plot_update_signal = pyqtSignal(int)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -45,7 +47,7 @@ class sim_tab(QWidget):
         self.goal_radius = 0.1
         self.init_agent_plots()
 
-        self.signal_object = plot_signaler()
+        self.signal_object = self.plot_signaler()
         self.signal_object.plot_update_signal.connect(self.update_agent_plots)
 
 
