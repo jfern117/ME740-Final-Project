@@ -1,0 +1,12 @@
+[submodule "gui_ws/src/DynamixelSDK"]
+	path = gui_ws/src/DynamixelSDK
+	url = https://github.com/ROBOTIS-GIT/DynamixelSDK.git
+	branch = humble
+[submodule "gui_ws/src/turtlebot3_msgs"]
+	path = gui_ws/src/turtlebot3_msgs
+	url = https://github.com/ROBOTIS-GIT/turtlebot3_msgs.git
+	branch = humble
+[submodule "gui_ws/src/turtlebot3"]
+	path = gui_ws/src/turtlebot3
+	url = https://github.com/ROBOTIS-GIT/turtlebot3.git
+	branch = humble
