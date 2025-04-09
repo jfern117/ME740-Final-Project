@@ -141,7 +141,6 @@ statistics-msgs==1.2.1
 std-msgs==4.2.4
 std-srvs==4.2.4
 stereo-msgs==4.2.4
-swarm-gui==0.0.0
 teleop-twist-keyboard==2.4.0
 tf2-geometry-msgs==0.25.12
 tf2-kdl==0.25.12
