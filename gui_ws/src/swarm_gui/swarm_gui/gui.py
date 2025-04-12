@@ -18,6 +18,14 @@ import cv2
 
 
 
+#TODO:
+#   - Come up with plan for sim data (idea - node in between that summarizes at a regular rate and publishers to GUI)
+#   - Route image data to gui
+#   - update keyboard to route commands to leader (ignore follower control)
+#   - develop dynamic fb linearization + controller effort calculator
+#   - develop auto controller node
+#   - create launch file for all that
+
 
 #see tutorial at https://www.pythonguis.com/tutorials/plotting-pyqtgraph/
 class sim_tab(QWidget):
@@ -117,9 +125,9 @@ class sim_tab(QWidget):
         """
         
         #lets just test how the layout looks + the method
-        frame = np.random.randint(0, 255, (480, 640, 3), dtype = np.uint8)
+        rgb_image = np.random.randint(0, 255, (480, 640, 3), dtype = np.uint8)
 
-        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) #this is random, why do this?
+        # rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         height, width, channel = np.shape(rgb_image)
         bytes_per_line = channel*width #each element is a byte
@@ -127,8 +135,6 @@ class sim_tab(QWidget):
         pixmap = QPixmap.fromImage(Qimg)
 
         self.fpv_view_label.setPixmap(pixmap)
-
-
 
 
 #helper class for the formation tab. Will likely be useful for later    
