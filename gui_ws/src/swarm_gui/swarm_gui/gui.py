@@ -1,9 +1,8 @@
 #PyQT5 Depdendencies
-import numpy as np
 from PyQt5.QtWidgets import QMainWindow, QLabel, QWidget, QTabWidget, QPushButton, QTableWidget, QTableWidgetItem, QComboBox, QLineEdit, QTextEdit #ui elements
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout #layouts
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout, QStackedLayout #layouts
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QImage, QPixmap
 import pyqtgraph as pg 
 from swarm_gui.agent_plot_helper import init_plot, update_plot
 from swarm_gui.messaging_helper import msg_to_array, array_to_msg
@@ -12,6 +11,10 @@ from swarm_gui.messaging_helper import msg_to_array, array_to_msg
 import yaml
 import tkinter as tk
 from tkinter import filedialog
+
+#other dependencies
+import numpy as np
+import cv2
 
 
 
@@ -29,18 +32,41 @@ class sim_tab(QWidget):
         #need a static reference to the shared main app state
         self.main_app = parent
 
-        self.tab_layout = QVBoxLayout()
-        self.setLayout(self.tab_layout)
+        #we're setting up a stacked layout to be able to have a FPV view with an overlaid minimap
+        self.main_layout = QGridLayout(self)
+        self.setLayout(self.main_layout)
 
-        #this is going to be the view graph until we get a FPV
-        self.central_view = pg.PlotWidget()
-        self.tab_layout.addWidget(self.central_view)
+        #add the background image layer
+        self.fpv_view_label = QLabel()
+        self.fpv_view_label.setScaledContents(True)
+        self.main_layout.addWidget(self.fpv_view_label, 1, 0, 2, 3)
+        
+        #add the overlaid minimap layer
+        self.overlay_widget = QWidget(self)
+        self.overlay_widget.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.overlay_widget.setStyleSheet("background: transparent;")
+        self.overlay_layout = QVBoxLayout()
+        self.overlay_layout.setContentsMargins(0, 0, 0, 0) #sets the margins of the upper corners (I think this makes it flush?)
+        self.overlay_layout.setAlignment(Qt.AlignTop | Qt.AlignRight) #put our minimap in the upper right
+
+        self.plot_view = pg.PlotWidget() #this is our minimap!
+        self.plot_view.setFixedSize(200,200)
+        self.overlay_layout.addWidget(self.plot_view)
+        self.overlay_widget.setLayout(self.overlay_layout)
+
+        self.main_layout.addWidget(self.overlay_widget, 0, 2)
+
+        #add two info tabs
+        self.left_info_tab_layout = QVBoxLayout()
+        self.curr_formation_label = QLabel()
+        self.left_info_tab_layout.addWidget(self.curr_formation_label)
+        self.main_layout.addLayout(self.left_info_tab_layout, 0, 0)
         
         #setup the plot
-        self.central_view.setBackground("w")
-        self.central_view.setMouseEnabled(x=False, y=False) #disable scrolling + zooming on the plot (we're gonna manage that)
-        self.central_view.showGrid(x=True, y= True)
-        self.central_view.setAspectLocked(True)
+        self.plot_view.setBackground("w")
+        self.plot_view.setMouseEnabled(x=False, y=False) #disable scrolling + zooming on the plot (we're gonna manage that)
+        self.plot_view.showGrid(x=True, y= True)
+        self.plot_view.setAspectLocked(True)
 
         self.agent_plot_list = []
         self.agent_goal_list = []
@@ -54,7 +80,7 @@ class sim_tab(QWidget):
     def init_agent_plots(self):
         """
         """
-        self.agent_plot_list, self.agent_goal_list = init_plot(self.central_view,
+        self.agent_plot_list, self.agent_goal_list = init_plot(self.plot_view,
                                                                self.main_app.agent_states,
                                                                self.main_app.get_agent_deviations(),
                                                                self.main_app.color_list,
@@ -76,12 +102,33 @@ class sim_tab(QWidget):
         #update if this is the selected window (trying to fix bug with udpating plots)
         if self.main_app.tab_widget.currentIndex() == 0:
 
-            update_plot(self.central_view, 
+            update_plot(self.plot_view, 
                         self.agent_plot_list, 
                         self.agent_goal_list, 
                         self.main_app.agent_states, 
                         self.main_app.get_agent_deviations(), 
                         self.goal_radius)
+            
+            self.update_camera_view()
+            self.curr_formation_label.setText(f"Current formation: {self.main_app.formation_list[self.main_app.selected_formation].name}")
+
+    def update_camera_view(self):
+        """
+        """
+        
+        #lets just test how the layout looks + the method
+        frame = np.random.randint(0, 255, (480, 640, 3), dtype = np.uint8)
+
+        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) #this is random, why do this?
+
+        height, width, channel = np.shape(rgb_image)
+        bytes_per_line = channel*width #each element is a byte
+        Qimg = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(Qimg)
+
+        self.fpv_view_label.setPixmap(pixmap)
+
+
 
 
 #helper class for the formation tab. Will likely be useful for later    
