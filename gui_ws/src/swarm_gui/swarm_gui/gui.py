@@ -33,6 +33,7 @@ class sim_tab(QWidget):
     #If the plot is updated in a different thread, the GUI will very quickly crash. Here is a fix that resolves that: https://stackoverflow.com/questions/64307813/pyqtgraph-stops-updating-and-freezes-when-grapahing-live-sensor-data
     class plot_signaler(QObject):
         plot_update_signal = pyqtSignal(int)
+        camera_update_signal = pyqtSignal(int)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -81,8 +82,14 @@ class sim_tab(QWidget):
         self.goal_radius = 0.1
         self.init_agent_plots()
 
+        self.most_recent_rgb_frame = None
+
+
         self.signal_object = self.plot_signaler()
         self.signal_object.plot_update_signal.connect(self.update_agent_plots)
+        self.signal_object.camera_update_signal.connect(self.update_camera_view)
+
+
 
 
     def init_agent_plots(self):
@@ -117,21 +124,26 @@ class sim_tab(QWidget):
                         self.main_app.get_agent_deviations(), 
                         self.goal_radius)
             
-            self.update_camera_view()
             self.curr_formation_label.setText(f"Current formation: {self.main_app.formation_list[self.main_app.selected_formation].name}")
 
-    def update_camera_view(self):
+
+
+    def update_camera_data(self, array):
+        self.most_recent_rgb_frame = array
+
+    def update_camera_view(self, enable:int):
         """
         """
+
+        if not enable:
+            return
         
-        #lets just test how the layout looks + the method
-        rgb_image = np.random.randint(0, 255, (480, 640, 3), dtype = np.uint8)
+        if self.most_recent_rgb_frame is None:
+            return
 
-        # rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        height, width, channel = np.shape(rgb_image)
+        height, width, channel = np.shape(self.most_recent_rgb_frame)
         bytes_per_line = channel*width #each element is a byte
-        Qimg = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format_RGB888)
+        Qimg = QImage(self.most_recent_rgb_frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(Qimg)
 
         self.fpv_view_label.setPixmap(pixmap)

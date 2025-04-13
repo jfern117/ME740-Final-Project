@@ -17,3 +17,7 @@
 [submodule "gui_ws/src/turtlebot3_multi_robot"]
 	path = gui_ws/src/turtlebot3_multi_robot
 	url = git@github.com:arshadlab/turtlebot3_multi_robot.git
+[submodule "gui_ws/src/vision_opencv"]
+	path = gui_ws/src/vision_opencv
+	url = git@github.com:ros-perception/vision_opencv.git
+	branch = humble
