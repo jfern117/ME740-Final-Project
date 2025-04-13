@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool, Float64MultiArray
+from geometry_msgs.msg import Twist
 
 #package dependencies
 from swarm_gui.messaging_helper import msg_to_array, array_to_msg
@@ -21,7 +22,7 @@ class Keyinput_manager(Node):
 
         #Various pub/subs
         self.formation_toggle_publisher_ = self.create_publisher(Bool, "formation_toggle", 10)
-        self.control_publisher_ = self.create_publisher(Float64MultiArray, "leader_control", 10)
+        self.control_publisher_ = self.create_publisher(Twist, "/agent0/cmd_vel", 10)
 
         self.state_subscriber_ = self.create_subscription(Float64MultiArray, "agent_states", self.agent_states_callback, 10)
 
@@ -88,17 +89,11 @@ class Keyinput_manager(Node):
         self.agent_states = agent_states
 
     def control_update_callback(self):
-        # self.get_logger().info(f"key state: {self.curr_key_state}")
 
         #only process when we've gotten agent state info
         if self.agent_states is None:
             return
         
-        #prepare for the control computation
-        leader_state = self.agent_states[0]
-        curr_xdot = leader_state[2]
-        curr_ydot = leader_state[3]
-        speed_check = lambda dir, v, vmax: np.sign(v) != dir or np.abs(v) < vmax
 
         #vars for readability
         left = self.curr_key_state[Key.left]
@@ -106,28 +101,31 @@ class Keyinput_manager(Node):
         up = self.curr_key_state[Key.up]
         down = self.curr_key_state[Key.down]
 
+
+        max_linear = 0.5
+        max_rot = 0.5
+
+        if up:
+            linear_velocity = max_linear
+        elif down:
+            linear_velocity = -max_linear
+        else:
+            linear_velocity = 0.0
+
+
         if left:
-            u_H = -self.max_speed/self.accel_time if speed_check(-1, curr_xdot, self.max_speed) else 0.0
+            rot_velocity = max_rot
         elif right:
-            u_H = self.max_speed/self.accel_time if speed_check(1, curr_xdot, self.max_speed) else 0.0
+            rot_velocity = -max_rot
         else:
-            u_H = -self.damping_constant*curr_xdot
-
-        if down:
-            u_V = -self.max_speed/self.accel_time if speed_check(-1, curr_ydot, self.max_speed) else 0.0
-        elif up:
-            u_V = self.max_speed/self.accel_time if speed_check(1, curr_ydot, self.max_speed) else 0.0
-        else:
-            u_V = -self.damping_constant*curr_ydot 
+            rot_velocity = 0.0
 
 
-        control = np.array([u_H, u_V]).reshape(-1, 1)
-        # self.get_logger().info(f"control: {control}")
+        msg = Twist()
+        msg.linear.x = linear_velocity
+        msg.angular.z = rot_velocity
 
-
-        msg = array_to_msg(control)
         self.control_publisher_.publish(msg)
-
  
 
 

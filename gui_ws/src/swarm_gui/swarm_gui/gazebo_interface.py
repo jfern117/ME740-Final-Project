@@ -1,9 +1,8 @@
 #ROS Depdendencies
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Bool, Float64MultiArray
+from std_msgs.msg import Float64MultiArray
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import CompressedImage, Image
 
 from swarm_gui.messaging_helper import msg_to_array, array_to_msg
 import numpy as np
