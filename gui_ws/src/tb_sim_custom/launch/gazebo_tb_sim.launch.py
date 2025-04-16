@@ -111,7 +111,7 @@ def generate_launch_description():
             executable = "robot_state_publisher",
             output = "screen",
             parameters = [{"use_sim_time":False,
-                           "publish_frequency": 10.0}],
+                           "publish_frequency": 30.0}],
             remappings = remappings,
             arguments = [urdf],
         )

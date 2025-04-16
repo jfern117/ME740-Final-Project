@@ -19,9 +19,11 @@ import cv2
 
 
 #TODO:
-#   - Come up with plan for sim data (idea - node in between that summarizes at a regular rate and publishers to GUI)
-#   - Route image data to gui
-#   - update keyboard to route commands to leader (ignore follower control)
+#   - Come up with plan for sim data (idea - node in between that summarizes at a regular rate and publishers to GUI) x
+#   - Route image data to gui x
+#   - update keyboard to route commands to leader (ignore follower control) x
+#   - optimization updates for frame rate?
+#       -- Saved for a future update. Its not ideal, but diagnoising the exact issue will take more time than I have left
 #   - develop dynamic fb linearization + controller effort calculator
 #   - develop auto controller node
 #   - create launch file for all that
@@ -476,6 +478,7 @@ class gui_app(QMainWindow):
     def update_agent_state(self, agent_states):
         self.agent_states = agent_states
 
+    #TODO: move this out of this app (probably has same threading crud as the plot)
     def publish_deviations(self):
         msg = array_to_msg(self.formation_list[self.selected_formation].agent_deviations)
         self.ros_node.deviation_publisher_.publish(msg)

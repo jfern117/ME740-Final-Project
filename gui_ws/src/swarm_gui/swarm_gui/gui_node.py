@@ -13,6 +13,7 @@ from swarm_gui.gui import gui_app
 from swarm_gui.messaging_helper import msg_to_array, array_to_msg
 
 from cv_bridge import CvBridge
+import numpy as np
 
 #Other requirements
 from threading import Thread #need to run both GUI + ros at same time
@@ -34,8 +35,8 @@ class Gui_Handler(Node):
                                                           "agent_deviations",
                                                           10)
         
-        self.camera_sub_ = self.create_subscription(Image, 
-                                 "/agent0/camera/image_raw",
+        self.camera_sub_ = self.create_subscription(CompressedImage, 
+                                 "/agent0/camera/image_raw/compressed", #trying to see if compressed image is faster
                                  self.camera_view_update,
                                  10)
         
@@ -67,7 +68,8 @@ class Gui_Handler(Node):
 
     def camera_view_update(self, msg):
 
-        frame = self.cvbridge.imgmsg_to_cv2(msg, "rgb8")
+        frame = self.cvbridge.compressed_imgmsg_to_cv2(msg, "rgb8")#imgmsg_to_cv2(msg, "rgb8")
+        # self.get_logger().info(f"frame size {np.shape(frame)}")
         self.main_app.tab_list[0].update_camera_data(frame)
         self.main_app.tab_list[0].signal_object.camera_update_signal.emit(1)
 
