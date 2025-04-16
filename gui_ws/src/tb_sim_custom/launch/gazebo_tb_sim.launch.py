@@ -94,6 +94,7 @@ def generate_launch_description():
     agent_states[2] = np.array([starting_offset, -starting_offset, 0, 0])
     agent_states[3] = np.array([0, -0.5, 0, 0])
     agent_states[4] = np.array([-starting_offset, -starting_offset, 0, 0])
+    agent_states = agent_states*3
 
     # Remapping is required for state publisher otherwise /tf and /tf_static will get be published on root '/' namespace
     remappings = [("/tf", "tf"), ("/tf_static", "tf_static")]
@@ -127,7 +128,7 @@ def generate_launch_description():
                     "-x", str(agent_states[agent_idx][0]),
                     "-y", str(agent_states[agent_idx][1]),
                     "-z", "0.01",
-                    "-Y", "3.14159",
+                    "-Y", "1.5707",
                     "-unpause",
                 ],
                 output="screen",

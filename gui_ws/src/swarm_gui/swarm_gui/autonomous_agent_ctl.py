@@ -34,13 +34,11 @@ class automation_manager(Node):
         self.agent_state_sub = self.create_subscription(Float64MultiArray, "agent_states", self.agent_state_callback, 10)
 
         self.agent_headings = None
-        self.agent_headings_sub = self.create_subscription()
+        self.agent_headings_sub = self.create_subscription(Float64MultiArray, "agent_headings", self.agent_heading_callback, 10)
 
         self.agent_deviations = None
         self.deviation_sub = self.create_subscription(Float64MultiArray, "agent_deviations", self.deviation_callback, 10)
     
-
-
         #control stuff
         self.network_graph = nx.complete_graph(self.num_agents)
         self.state_dim = 4
@@ -48,7 +46,7 @@ class automation_manager(Node):
 
         #gain stuff
         #TODO: if this are nowhere near close to working, look at the set point regulation from the paper
-        gamma0 = 2
+        gamma0 = 5
         gamma1 = 2
         self.consensus_gain = np.zeros((2, self.state_dim))
         self.consensus_gain[0, 0] = gamma0
@@ -57,6 +55,8 @@ class automation_manager(Node):
         self.consensus_gain[1, 3] = gamma1
 
         self.velocity_eps = 0.05 
+        self.velocity_limit = 1.0
+        self.rot_vel_limit = 2.0
 
     #update callbacks
     def agent_state_callback(self, msg):
@@ -66,7 +66,7 @@ class automation_manager(Node):
         self.agent_deviations = msg_to_array(msg)
 
     def agent_heading_callback(self, msg):
-        self.agent_headings = array_to_msg(msg)
+        self.agent_headings = msg_to_array(msg).flatten()
         
     def init_compensators(self):
         """
@@ -103,7 +103,35 @@ class automation_manager(Node):
     
     def compute_agent_velocity_commands(self, control_effort, agent_idx):
 
-        pass
+        u1 = control_effort[0]
+        u2 = control_effort[1]
+        heading = self.agent_headings[agent_idx]
+
+        #calculate the rate of change of the compensator
+        zetadot = u1*np.cos(heading) + u2*np.sin(heading)
+
+        #update the compensator value (using forward euler for the sake of simplicity)
+        self.dynamic_compensators[agent_idx-1] += zetadot*self.timer_period
+
+        #we're gonna do basic check to prevent singularity issue
+        if np.abs(self.dynamic_compensators[agent_idx-1]) > self.velocity_eps:
+            omega = (-u1*np.sin(heading) + u2*np.cos(heading))/self.dynamic_compensators[agent_idx-1]
+        else:
+            omega = 0.0 #lets just make it simple
+
+        cmd = Twist()
+
+        #adding in a velocity limit
+        if np.abs(self.dynamic_compensators[agent_idx-1]) >= self.velocity_limit:
+            self.dynamic_compensators[agent_idx-1] = self.velocity_limit
+
+        if np.abs(omega) >= self.rot_vel_limit:
+            omega= self.velocity_limit
+
+        cmd.linear.x = self.dynamic_compensators[agent_idx-1]
+        cmd.angular.z = omega
+
+        return cmd
 
 
 
@@ -126,7 +154,9 @@ class automation_manager(Node):
 
         control_efforts = self.compute_control_efforts()
 
-
+        for agent_idx in range(1, self.num_agents):
+            vel_cmd = self.compute_agent_velocity_commands(control_efforts[agent_idx - 1], agent_idx)
+            self.follower_pub_list[agent_idx-1].publish(vel_cmd)
 
 def main(args = None):
     rclpy.init(args=args)

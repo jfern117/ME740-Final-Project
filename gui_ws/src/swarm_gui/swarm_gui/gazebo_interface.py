@@ -74,7 +74,7 @@ class gazebo_sim_interface(Node):
 
         if np.all(self.agent_init_tracking):
             self.agent_state_pub_.publish(array_to_msg(self.most_recent_agent_state))
-            self.agent_heading_pub_.publish(array_to_msg(self.most_recent_agent_headings))
+            self.agent_heading_pub_.publish(array_to_msg(self.most_recent_agent_headings.reshape(-1, 1)))
 
 
 def main(args=None):

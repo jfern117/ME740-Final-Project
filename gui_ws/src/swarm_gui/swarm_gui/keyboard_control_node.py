@@ -103,7 +103,7 @@ class Keyinput_manager(Node):
 
 
         max_linear = 0.5
-        max_rot = 0.5
+        max_rot = 1.0
 
         if up:
             linear_velocity = max_linear

@@ -442,6 +442,7 @@ class gui_app(QMainWindow):
         desired_deviations[2] = np.array([0, 1, 0, 0])
         desired_deviations[3] = np.array([-1, 0, 0, 0])
         desired_deviations[4] = np.array([0, -1, 0, 0])
+        desired_deviations = desired_deviations*2.5
 
         #The sim has GT on the agent states, the GUI needs to be provided them
         self.agent_states = np.zeros(np.shape(desired_deviations))

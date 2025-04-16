@@ -22,7 +22,6 @@ def generate_launch_description():
         )
     )
 
-    #TODO: seems to partially work? Test if they need to load in first
     interface_node = Node(package='swarm_gui',
                           executable='gazebo_interface',
                           name = 'gazebo_interface')
@@ -39,11 +38,17 @@ def generate_launch_description():
                         executable = 'controller',
                         name = 'controller_input_handler'
     )
+
+    #autnomous control node
+    auto_ctl_node = Node(package='swarm_gui',
+                         executable='autonmous_control',
+                         name="follower_controller")
     
     node_list.append(gazebo_launch_description)
     node_list.append(interface_node)
     node_list.append(gui_node)
     node_list.append(control_node)
+    node_list.append(auto_ctl_node)
 
 
     return LaunchDescription(node_list)
