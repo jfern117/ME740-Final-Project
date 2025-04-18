@@ -1,0 +1,23 @@
+[submodule "gui_ws/src/DynamixelSDK"]
+	path = gui_ws/src/DynamixelSDK
+	url = https://github.com/ROBOTIS-GIT/DynamixelSDK.git
+	branch = humble
+[submodule "gui_ws/src/turtlebot3_msgs"]
+	path = gui_ws/src/turtlebot3_msgs
+	url = https://github.com/ROBOTIS-GIT/turtlebot3_msgs.git
+	branch = humble
+[submodule "gui_ws/src/turtlebot3"]
+	path = gui_ws/src/turtlebot3
+	url = https://github.com/ROBOTIS-GIT/turtlebot3.git
+	branch = humble
+[submodule "gui_ws/src/turtlebot3_simulations"]
+	path = gui_ws/src/turtlebot3_simulations
+	url = https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git
+	branch = humble
+[submodule "gui_ws/src/turtlebot3_multi_robot"]
+	path = gui_ws/src/turtlebot3_multi_robot
+	url = git@github.com:arshadlab/turtlebot3_multi_robot.git
+[submodule "gui_ws/src/vision_opencv"]
+	path = gui_ws/src/vision_opencv
+	url = git@github.com:ros-perception/vision_opencv.git
+	branch = humble

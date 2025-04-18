@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool, Float64MultiArray
+from sensor_msgs.msg import CompressedImage, Image
 
 #pyqt5 dependencies
 from PyQt5.QtWidgets import QApplication
@@ -10,6 +11,9 @@ from PyQt5.QtWidgets import QApplication
 #ros is very cool and intutive: https://stackoverflow.com/questions/57426715/import-modules-in-package-in-ros2
 from swarm_gui.gui import gui_app
 from swarm_gui.messaging_helper import msg_to_array, array_to_msg
+
+from cv_bridge import CvBridge
+import numpy as np
 
 #Other requirements
 from threading import Thread #need to run both GUI + ros at same time
@@ -31,6 +35,13 @@ class Gui_Handler(Node):
                                                           "agent_deviations",
                                                           10)
         
+        self.camera_sub_ = self.create_subscription(CompressedImage, 
+                                 "/agent0/camera/image_raw/compressed", #trying to see if compressed image is faster
+                                 self.camera_view_update,
+                                 10)
+        
+        self.cvbridge = CvBridge()
+        
         self.init_deviation_sent = False
 
         self.main_app = gui_app
@@ -42,11 +53,25 @@ class Gui_Handler(Node):
             self.init_deviation_sent = True
         
         agent_states = msg_to_array(msg)
-        self.main_app.tab_list[0].update_agent_plots(agent_states) #this helper function updates the agent states
+
+        #update the agent states
+        self.main_app.tab_list[0].update_agent_states(agent_states) 
+
+        #emit a signal to update the plot (want it to be in the proper thread)
+        self.main_app.tab_list[0].signal_object.plot_update_signal.emit(1)
+
 
     def formation_toggle_callback(self, msg):
         self.main_app.selected_formation = (self.main_app.selected_formation + 1) % len(self.main_app.formation_list)
         self.main_app.publish_deviations()
+
+
+    def camera_view_update(self, msg):
+
+        frame = self.cvbridge.compressed_imgmsg_to_cv2(msg, "rgb8")#imgmsg_to_cv2(msg, "rgb8")
+        # self.get_logger().info(f"frame size {np.shape(frame)}")
+        self.main_app.tab_list[0].update_camera_data(frame)
+        self.main_app.tab_list[0].signal_object.camera_update_signal.emit(1)
 
 def main(args=None):
     rclpy.init(args=args)

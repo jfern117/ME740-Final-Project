@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-colcon build
-source install/setup.bash && ros2 launch swarm_gui sim_launch.py
+colcon build --packages-select swarm_gui tb_sim_custom
+source install/setup.bash && ros2 launch swarm_gui gazebo_sim_launch.py

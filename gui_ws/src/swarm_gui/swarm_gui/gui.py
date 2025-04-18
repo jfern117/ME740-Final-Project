@@ -1,9 +1,8 @@
 #PyQT5 Depdendencies
-import numpy as np
 from PyQt5.QtWidgets import QMainWindow, QLabel, QWidget, QTabWidget, QPushButton, QTableWidget, QTableWidgetItem, QComboBox, QLineEdit, QTextEdit #ui elements
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout #layouts
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout, QStackedLayout #layouts
+from PyQt5.QtCore import Qt, pyqtSignal, QObject
+from PyQt5.QtGui import QColor, QImage, QPixmap
 import pyqtgraph as pg 
 from swarm_gui.agent_plot_helper import init_plot, update_plot
 from swarm_gui.messaging_helper import msg_to_array, array_to_msg
@@ -13,9 +12,30 @@ import yaml
 import tkinter as tk
 from tkinter import filedialog
 
+#other dependencies
+import numpy as np
+import cv2
+
+
+
+#TODO:
+#   - Come up with plan for sim data (idea - node in between that summarizes at a regular rate and publishers to GUI) x
+#   - Route image data to gui x
+#   - update keyboard to route commands to leader (ignore follower control) x
+#   - optimization updates for frame rate?
+#       -- Saved for a future update. Its not ideal, but diagnoising the exact issue will take more time than I have left
+#   - develop dynamic fb linearization + controller effort calculator
+#   - develop auto controller node
+#   - create launch file for all that
+
 
 #see tutorial at https://www.pythonguis.com/tutorials/plotting-pyqtgraph/
 class sim_tab(QWidget):
+
+    #If the plot is updated in a different thread, the GUI will very quickly crash. Here is a fix that resolves that: https://stackoverflow.com/questions/64307813/pyqtgraph-stops-updating-and-freezes-when-grapahing-live-sensor-data
+    class plot_signaler(QObject):
+        plot_update_signal = pyqtSignal(int)
+        camera_update_signal = pyqtSignal(int)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -23,50 +43,112 @@ class sim_tab(QWidget):
         #need a static reference to the shared main app state
         self.main_app = parent
 
-        self.tab_layout = QVBoxLayout()
-        self.setLayout(self.tab_layout)
+        #we're setting up a stacked layout to be able to have a FPV view with an overlaid minimap
+        self.main_layout = QGridLayout(self)
+        self.setLayout(self.main_layout)
 
-        #this is going to be the view graph until we get a FPV
-        self.central_view = pg.PlotWidget()
-        self.tab_layout.addWidget(self.central_view)
+        #add the background image layer
+        self.fpv_view_label = QLabel()
+        self.fpv_view_label.setScaledContents(True)
+        self.main_layout.addWidget(self.fpv_view_label, 1, 0, 2, 3)
+        
+        #add the overlaid minimap layer
+        self.overlay_widget = QWidget(self)
+        self.overlay_widget.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.overlay_widget.setStyleSheet("background: transparent;")
+        self.overlay_layout = QVBoxLayout()
+        self.overlay_layout.setContentsMargins(0, 0, 0, 0) #sets the margins of the upper corners (I think this makes it flush?)
+        self.overlay_layout.setAlignment(Qt.AlignTop | Qt.AlignRight) #put our minimap in the upper right
+
+        self.plot_view = pg.PlotWidget() #this is our minimap!
+        self.plot_view.setFixedSize(200,200)
+        self.overlay_layout.addWidget(self.plot_view)
+        self.overlay_widget.setLayout(self.overlay_layout)
+
+        self.main_layout.addWidget(self.overlay_widget, 0, 2)
+
+        #add two info tabs
+        self.left_info_tab_layout = QVBoxLayout()
+        self.curr_formation_label = QLabel()
+        self.left_info_tab_layout.addWidget(self.curr_formation_label)
+        self.main_layout.addLayout(self.left_info_tab_layout, 0, 0)
         
         #setup the plot
-        self.central_view.setBackground("w")
-        self.central_view.setMouseEnabled(x=False, y=False) #disable scrolling + zooming on the plot (we're gonna manage that)
-        self.central_view.showGrid(x=True, y= True)
-        self.central_view.setAspectLocked(True)
+        self.plot_view.setBackground("w")
+        self.plot_view.setMouseEnabled(x=False, y=False) #disable scrolling + zooming on the plot (we're gonna manage that)
+        self.plot_view.showGrid(x=True, y= True)
+        self.plot_view.setAspectLocked(True)
 
         self.agent_plot_list = []
         self.agent_goal_list = []
         self.goal_radius = 0.1
         self.init_agent_plots()
 
+        self.most_recent_rgb_frame = None
+
+
+        self.signal_object = self.plot_signaler()
+        self.signal_object.plot_update_signal.connect(self.update_agent_plots)
+        self.signal_object.camera_update_signal.connect(self.update_camera_view)
+
+
+
 
     def init_agent_plots(self):
         """
         """
-        self.agent_plot_list, self.agent_goal_list = init_plot(self.central_view,
+        self.agent_plot_list, self.agent_goal_list = init_plot(self.plot_view,
                                                                self.main_app.agent_states,
                                                                self.main_app.get_agent_deviations(),
                                                                self.main_app.color_list,
                                                                self.goal_radius)
 
-    def update_agent_plots(self, updated_agent_states):
+    def update_agent_states(self, updated_agent_states):
+        #update stuff provided by the function call
+        self.main_app.agent_states = updated_agent_states
+
+
+    def update_agent_plots(self, int_value):
         """
         """
 
-        #update stuff provided by the function call
-        self.main_app.agent_states = updated_agent_states
+        #giving the option to add cases where this isnt' plotted
+        if not int_value:
+            return
 
         #update if this is the selected window (trying to fix bug with udpating plots)
         if self.main_app.tab_widget.currentIndex() == 0:
 
-            update_plot(self.central_view, 
+            update_plot(self.plot_view, 
                         self.agent_plot_list, 
                         self.agent_goal_list, 
                         self.main_app.agent_states, 
                         self.main_app.get_agent_deviations(), 
                         self.goal_radius)
+            
+            self.curr_formation_label.setText(f"Current formation: {self.main_app.formation_list[self.main_app.selected_formation].name}")
+
+
+
+    def update_camera_data(self, array):
+        self.most_recent_rgb_frame = array
+
+    def update_camera_view(self, enable:int):
+        """
+        """
+
+        if not enable:
+            return
+        
+        if self.most_recent_rgb_frame is None:
+            return
+
+        height, width, channel = np.shape(self.most_recent_rgb_frame)
+        bytes_per_line = channel*width #each element is a byte
+        Qimg = QImage(self.most_recent_rgb_frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(Qimg)
+
+        self.fpv_view_label.setPixmap(pixmap)
 
 
 #helper class for the formation tab. Will likely be useful for later    
@@ -360,6 +442,7 @@ class gui_app(QMainWindow):
         desired_deviations[2] = np.array([0, 1, 0, 0])
         desired_deviations[3] = np.array([-1, 0, 0, 0])
         desired_deviations[4] = np.array([0, -1, 0, 0])
+        desired_deviations = desired_deviations*2.5
 
         #The sim has GT on the agent states, the GUI needs to be provided them
         self.agent_states = np.zeros(np.shape(desired_deviations))
@@ -396,6 +479,7 @@ class gui_app(QMainWindow):
     def update_agent_state(self, agent_states):
         self.agent_states = agent_states
 
+    #TODO: move this out of this app (probably has same threading crud as the plot)
     def publish_deviations(self):
         msg = array_to_msg(self.formation_list[self.selected_formation].agent_deviations)
         self.ros_node.deviation_publisher_.publish(msg)
