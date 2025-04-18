@@ -6,10 +6,9 @@ from geometry_msgs.msg import Twist
 
 import numpy as np
 import networkx as nx
+import scipy.linalg
 
 from swarm_gui.messaging_helper import msg_to_array, array_to_msg
-
-
 
 
 class automation_manager(Node):
@@ -38,23 +37,38 @@ class automation_manager(Node):
 
         self.agent_deviations = None
         self.deviation_sub = self.create_subscription(Float64MultiArray, "agent_deviations", self.deviation_callback, 10)
-    
-        #control stuff
-        self.network_graph = nx.complete_graph(self.num_agents)
+
+
+
+        #lower level control stuff
         self.state_dim = 4
-        self.control_dim = 2
+        self.low_level_control_dim = 2
+        kp = 10
+        kd = 10
+        self.K_ll = np.array([[kp, 0, kd, 0],
+                              [kp, 0, kd, 0]])
+        
+        A_linearized = np.zeros((self.state_dim, self.state_dim))
+        A_linearized[0, 2] = 1
+        A_linearized[1, 3] = 1
 
-        #gain stuff
-        #TODO: if this are nowhere near close to working, look at the set point regulation from the paper
-        gamma0 = 5
-        gamma1 = 2
-        self.consensus_gain = np.zeros((2, self.state_dim))
-        self.consensus_gain[0, 0] = gamma0
-        self.consensus_gain[0, 2] = gamma1
-        self.consensus_gain[1, 1] = gamma0
-        self.consensus_gain[1, 3] = gamma1
+        B_linearized = np.zeros((self.state_dim, self.low_level_control_dim))
+        B_linearized[2, 0] = 1
+        B_linearized[3, 1] = 1
 
-        self.velocity_eps = 0.05 
+        self.A_ll = A_linearized - B_linearized @  self.K_ll
+        self.B_ll = B_linearized @  self.K_ll
+
+    
+        #consensus control stuff
+        self.network_graph = nx.complete_graph(self.num_agents)
+        self.lambda_2 = nx.laplacian_spectrum(self.network_graph)[1]
+        self.graph_connectivity_constant = 10 + 1/self.lambda_2
+        self.control_dim = 4
+        Q0 = 5*np.eye(self.state_dim) + 2 * (self.B_ll @ self.B_ll.T)
+        self.consensus_gain = self.compute_consensus_gain(Q0)
+
+        self.velocity_eps = 0.01 
         self.velocity_limit = 1.0
         self.rot_vel_limit = 2.0
 
@@ -67,7 +81,21 @@ class automation_manager(Node):
 
     def agent_heading_callback(self, msg):
         self.agent_headings = msg_to_array(msg).flatten()
-        
+
+    def compute_consensus_gain(self, Q0):
+        """
+        """
+
+        A_mat = self.A_ll.T
+        rhs_mat = -Q0 + 2*(self.B_ll @ self.B_ll.T)
+
+        R_mat = scipy.linalg.solve_continuous_lyapunov(A_mat, rhs_mat)
+        R_inv = np.linalg.inv(R_mat)
+
+        consensus_gain = self.graph_connectivity_constant * (self.B_ll.T @ R_inv)
+
+        return consensus_gain
+
     def init_compensators(self):
         """
         Sets the intial velocity direction
@@ -88,13 +116,18 @@ class automation_manager(Node):
         for neighbor_idx in range(len(neighbor_list)):
             consensus_sum += offset_states[agent_idx] - offset_states[neighbor_idx]
 
-        control_input = -self.consensus_gain @ consensus_sum.reshape((-1,1))
+        high_level_control_input = -self.consensus_gain @ consensus_sum.reshape((-1,1))
 
-        return control_input.flatten()
+
+        #compute the lower level control inputs
+        low_level_control_input = - self.K_ll @ (self.agent_states[agent_idx].reshape(-1,1) - high_level_control_input)
+        
+
+        return low_level_control_input.flatten()
 
 
     def compute_control_efforts(self):
-        control_efforts = np.zeros((self.num_agents - 1, self.control_dim))
+        control_efforts = np.zeros((self.num_agents - 1, self.low_level_control_dim))
 
         for agent_idx in range(1, self.num_agents):
             control_efforts[agent_idx-1] = self.compute_agent_control_effort(agent_idx)
