@@ -68,10 +68,19 @@ class sim_tab(QWidget):
         self.main_layout.addWidget(self.overlay_widget, 0, 2)
 
         #add two info tabs
+
+        #left most info tab
         self.left_info_tab_layout = QVBoxLayout()
-        self.curr_formation_label = QLabel()
-        self.left_info_tab_layout.addWidget(self.curr_formation_label)
+        self.left_info_label = QLabel()
+        self.left_info_tab_layout.addWidget(self.left_info_label)
+
+        #right info tab
+        self.right_info_tab_layout = QVBoxLayout()
+        self.follower_info_label = QLabel()
+        self.right_info_tab_layout.addWidget(self.follower_info_label)
+
         self.main_layout.addLayout(self.left_info_tab_layout, 0, 0)
+        self.main_layout.addLayout(self.right_info_tab_layout, 0, 1)
         
         #setup the plot
         self.plot_view.setBackground("w")
@@ -126,9 +135,18 @@ class sim_tab(QWidget):
                         self.main_app.get_agent_deviations(), 
                         self.goal_radius)
             
-            self.curr_formation_label.setText(f"Current formation: {self.main_app.formation_list[self.main_app.selected_formation].name}")
+            left_msg = f"Current formation: {self.main_app.formation_list[self.main_app.selected_formation].name}"
+            left_msg += "\n" + f"Leader:: x: {self.main_app.agent_states[0, 0]:.2f}, y: {self.main_app.agent_states[0, 1]:.2f}, xdot: {self.main_app.agent_states[0, 2]:.2f}, ydot: {self.main_app.agent_states[0, 3]:.2f}"
+            left_msg += "\t"
+            self.left_info_label.setText(left_msg)
 
+            right_msg = ""
+            for agent_idx in range(1, self.main_app.num_agents):
+                right_msg += f"Agent {agent_idx}:: x: {self.main_app.agent_states[agent_idx, 0]:.2f}, y: {self.main_app.agent_states[agent_idx, 1]:.2f}, xdot: {self.main_app.agent_states[agent_idx, 2]:.2f}, ydot: {self.main_app.agent_states[agent_idx, 3]:.2f}"
+                right_msg += "\n"
 
+            right_msg += "\t"
+            self.follower_info_label.setText(right_msg)
 
     def update_camera_data(self, array):
         self.most_recent_rgb_frame = array
