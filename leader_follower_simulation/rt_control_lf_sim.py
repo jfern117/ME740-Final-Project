@@ -34,6 +34,9 @@ for idx in range(num_followers):
     edges = edges + [(idx, other.item()) for other in np.arange(idx+1, num_agents)]
 comm_network.add_edges_from(edges)
 
+#add a list of lists to track the last 1000 states for drawing
+trailing_traj = [list() for idx in range(num_agents)]
+max_traj_track = 500
 
 #each agent has a four element state: [x, y, xdot, ydot]. Here are the starting states
 starting_offset = np.sqrt(2)/2
@@ -234,6 +237,15 @@ while running:
         curr_goal = formation_list[formation_selection][agent_idx] + agent_states[0]
         goal_pos_pixels = get_agent_display_position(curr_goal)
         pygame.draw.circle(screen, colors[agent_idx], goal_pos_pixels, radius*3, 2)
+
+        #update the agent's trailing trajectory
+        trailing_traj[agent_idx].append((agent_pos_pixels[0], agent_pos_pixels[1]))
+        if len(trailing_traj[agent_idx]) > max_traj_track:
+            trailing_traj[agent_idx].pop(0) #remove the earliest element
+        
+        if len(trailing_traj[agent_idx]) >= 2:
+            pygame.draw.lines(screen, colors[agent_idx], False, trailing_traj[agent_idx])
+
 
     pygame.display.update()
     clock.tick(frame_rate)

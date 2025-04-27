@@ -19,6 +19,7 @@ from sim_helper import plot_sim_frame, consensus_control_input, single_agent_sta
 #variables we'll likely adjust frequently
 sim_time = 10
 sim_dt = 0.001
+make_ani = False
 
 #setting up network. For simplicity, everything can talk to one another. The leader will be agent 0
 num_followers = 4
@@ -134,8 +135,8 @@ x_data = system_states[:, :, 0]
 y_data = system_states[:, :, 1]
 
 
-
-fig, ax, agent_points, agent_goal_circles = plot_sim_frame(system_states[0], desired_deviations)
+if make_ani:
+    fig, ax, agent_points, agent_goal_circles = plot_sim_frame(system_states[0], desired_deviations)
 
 
 #animation helper functions
@@ -170,15 +171,54 @@ def ani_update(frame):
 
     return agent_points + agent_goal_circles
 
+#commenting out to make a plot for the report
+if make_ani:
+    num_frames = num_frames = len(system_states) // samples_per_frame
+    ani = FuncAnimation(fig, ani_update, frames = num_frames, init_func=ani_init, blit = True)
 
-num_frames = num_frames = len(system_states) // samples_per_frame
-ani = FuncAnimation(fig, ani_update, frames = num_frames, init_func=ani_init, blit = True)
+    if save_animation:
+        ani.save(save_name, writer=FFMpegWriter(fps=frame_rate))
+        print(f"Animation saved as {save_name}")
+    else:
+        plt.show()
 
-if save_animation:
-    ani.save(save_name, writer=FFMpegWriter(fps=frame_rate))
-    print(f"Animation saved as {save_name}")
 else:
+
+    traj_line_list = []
+    init_state_list = []
+    end_desired_circle_list = []
+    end_state_list = []
+    radius = 0.1
+    leader_end = system_states[-1, 0, 0:2]
+
+    fig = plt.figure(figsize=(8,8))
+    for agent_idx in range(num_agents):
+
+        #plot the trajectory as a dashed line
+        agent_traj = system_states[:, agent_idx, 0:2]
+        traj_line = plt.plot(agent_traj[:, 0], agent_traj[:, 1], "--", label = f"Agent {agent_idx} Trajectory" )[0]
+        traj_line_list.append(traj_line)
+
+        #plot the initial states as a triangle
+        init_state_line = plt.plot(agent_traj[0, 0], agent_traj[0, 1], "^", c = traj_line.get_color(), label= "Initial State")[0]
+        init_state_list.append(init_state_line)
+
+        #plot the final state as a dot
+        final_state_line = plt.plot(agent_traj[-1, 0], agent_traj[-1, 1], "o", label = f"Final State", c = traj_line.get_color())[0]
+        end_state_list.append(final_state_line)
+
+        #desired state
+        ax = plt.gca()
+        circle = plt.Circle(leader_end + desired_deviations[agent_idx, 0:2], radius=radius,
+                            edgecolor = traj_line.get_color(),
+                            facecolor = "none",
+                            linestyle = "-.",
+                            label = "Goal State")
+        ax.add_patch(circle)
+        end_desired_circle_list.append(circle)
+
+    plt.legend(handles = [init_state_list[0]] + traj_line_list + [end_state_list[0]] + [end_desired_circle_list[0]], loc = "lower right")
+    plt.title("Consensus Sim for Double Integrator Dynamics")
+    plt.xlabel("x position (m)")
+    plt.ylabel("y position (m)")
     plt.show()
-
-
-
