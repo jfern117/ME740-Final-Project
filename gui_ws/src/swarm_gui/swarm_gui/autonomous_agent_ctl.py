@@ -112,7 +112,7 @@ class automation_manager(Node):
 
         #update the compensator value (using forward euler for the sake of simplicity)
         self.dynamic_compensators[agent_idx-1] += zetadot*self.timer_period
-
+        # omega = (-u1*np.sin(heading) + u2*np.cos(heading))/self.dynamic_compensators[agent_idx-1]
         #we're gonna do basic check to prevent singularity issue
         if np.abs(self.dynamic_compensators[agent_idx-1]) > self.velocity_eps:
             omega = (-u1*np.sin(heading) + u2*np.cos(heading))/self.dynamic_compensators[agent_idx-1]
